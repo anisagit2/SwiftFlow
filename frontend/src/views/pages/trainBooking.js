@@ -1,6 +1,7 @@
 import { renderOptions } from "../helpers.js";
 
 export const renderTrainBookingPage = (state) => `
+    ${state.pendingAction === "confirm-train" ? `<section class="panel panel--subtle"><p>Confirming your RTS booking...</p></section>` : ""}
     <section class="hero-card hero-card--booking">
         <div class="hero-copy">
             <div class="booking-head">
@@ -79,22 +80,27 @@ export const renderTrainBookingPage = (state) => `
                     <select data-field="train-payment">${renderOptions(state.trainPaymentOptions, state.booking.paymentMethod)}</select>
                 </label>
                 <div class="payment-row">
-                    <small>Method</small>
-                    <strong>${state.booking.paymentMethod}</strong>
-                </div>
-                <div class="payment-row">
-                    <small>Ticket type</small>
-                    <strong>Standard RTS seat</strong>
-                </div>
-                <div class="payment-row">
                     <small>Status</small>
-                    <strong>Ready to charge after booking</strong>
+                    <strong>${state.booking.paymentStatus}</strong>
+                </div>
+                <div class="payment-row">
+                    <small>Confirmation</small>
+                    <strong>${state.booking.confirmationCode ?? "Not confirmed yet"}</strong>
                 </div>
             </div>
-            <button class="primary-action primary-action--light" data-action="open-pass">
-                <span>Open Priority QR Pass</span>
-                <span class="material-symbols-outlined">qr_code_2</span>
-            </button>
+            <div class="stack-actions">
+                <button class="primary-action primary-action--light" data-action="confirm-train" ${state.pendingAction ? "disabled" : ""}>
+                    <span>${state.booking.confirmed ? "RTS Booking Confirmed" : "Confirm RTS Booking"}</span>
+                    <span class="material-symbols-outlined">${state.booking.confirmed ? "check_circle" : "task_alt"}</span>
+                </button>
+                <button class="secondary-action" data-action="open-pass" data-mode="rts">
+                    <span>Access QR Pass</span>
+                    <span class="material-symbols-outlined">qr_code_2</span>
+                </button>
+            </div>
+            <p class="support-copy">
+                ${state.booking.confirmed ? "Your RTS booking is saved in the backend and ready to reference." : "Confirm the RTS booking to persist the current time, destination, and payment method."}
+            </p>
         </article>
     </section>
 

@@ -66,54 +66,22 @@ export const renderCarpoolBookingPage = (state) => {
                     </div>
                     <div class="payment-row">
                         <small>Status</small>
-                        <strong>Charge after driver selection</strong>
+                        <strong>${state.carpoolBooking.paymentStatus}</strong>
+                    </div>
+                    <div class="payment-row">
+                        <small>Reservation</small>
+                        <strong>${state.carpoolBooking.confirmationCode ?? driver.reservationStatus}</strong>
                     </div>
                 </div>
-            </article>
-        </section>
-
-        <section class="grid-two">
-            <article class="panel carpool-map-panel">
-                <div class="map-pin">
-                    <span class="material-symbols-outlined filled">place</span>
+                <div class="stack-actions">
+                    <button class="primary-action primary-action--light" data-action="confirm-carpool" ${state.pendingAction ? "disabled" : ""}>
+                        <span>${state.carpoolBooking.confirmed && state.carpoolBooking.driverId === driver.id ? "Carpool Reserved" : "Reserve Carpool Seat"}</span>
+                        <span class="material-symbols-outlined">${state.carpoolBooking.confirmed && state.carpoolBooking.driverId === driver.id ? "check_circle" : "local_taxi"}</span>
+                    </button>
                 </div>
-                <div class="map-caption">${driver.pickupSpot}</div>
-            </article>
-
-            <article class="panel">
-                <div class="section-head">
-                    <div>
-                        <span class="eyebrow">Pickup route</span>
-                        <h2>Go to the pickup spot</h2>
-                    </div>
-                    <span class="material-symbols-outlined accent">map</span>
-                </div>
-                <div class="ticket-grid">
-                    <div class="ticket-stat">
-                        <small>From</small>
-                        <strong>${state.booking.origin}</strong>
-                    </div>
-                    <div class="ticket-stat">
-                        <small>To</small>
-                        <strong>${driver.destination}</strong>
-                    </div>
-                    <div class="ticket-stat">
-                        <small>Pickup spot</small>
-                        <strong>${driver.pickupSpot}</strong>
-                    </div>
-                    <div class="ticket-stat">
-                        <small>Walk ETA</small>
-                        <strong>${driver.pickupEta}</strong>
-                    </div>
-                    <div class="ticket-stat">
-                        <small>Departure time</small>
-                        <strong>${driver.departureTime}</strong>
-                    </div>
-                    <div class="ticket-stat">
-                        <small>Lane access</small>
-                        <strong>${driver.hovLane}</strong>
-                    </div>
-                </div>
+                <p class="support-copy">
+                    ${state.carpoolBooking.confirmed && state.carpoolBooking.driverId === driver.id ? "This driver reservation is stored in the backend with the latest payment selection." : "Reserve the currently selected driver to save the ride and reduce the visible seat count."}
+                </p>
             </article>
         </section>
     `;

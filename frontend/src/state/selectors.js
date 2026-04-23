@@ -8,6 +8,8 @@ export const topbarTitle = (state) => {
     if (state.activeTab === "booking") return "RTS Booking";
     if (state.activeTab === "bus-booking") return "Bus Booking";
     if (state.activeTab === "carpool-booking") return "Taxi Carpool";
+    if (state.activeTab === "carpool-pickup") return "Pickup Map";
+    if (state.activeTab === "passport-checkin") return "Passport Check-In";
     if (state.activeTab === "credits") return "Green Credits";
     if (state.activeTab === "rewards") return "Rewards Marketplace";
     if (state.activeTab === "profile") return "Profile";

@@ -157,6 +157,31 @@ button {
     gap: 1.5rem;
 }
 
+.request-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.95rem 1.1rem;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(186, 203, 190, 0.75);
+    box-shadow: var(--shadow);
+}
+
+.request-banner--info {
+    background: rgba(149, 158, 253, 0.14);
+    color: #27308a;
+}
+
+.request-banner--success {
+    background: rgba(0, 214, 143, 0.12);
+    color: var(--primary-strong);
+}
+
+.request-banner--error {
+    background: rgba(255, 218, 214, 0.9);
+    color: #93000a;
+}
+
 .hero-card,
 .panel,
 .info-card,
@@ -197,6 +222,13 @@ button {
 
 .hero-card--profile {
     background: linear-gradient(180deg, rgba(241, 244, 242, 0.88), rgba(255, 255, 255, 0.98));
+}
+
+.profile-hero {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 1.25rem;
 }
 
 .hero-card--booking {
@@ -339,6 +371,10 @@ strong {
     gap: 1rem;
 }
 
+.metric-grid--profile {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .hero-actions,
 .notice-actions {
     flex-wrap: wrap;
@@ -381,6 +417,12 @@ strong {
 .info-card:hover,
 .icon-action:hover {
     transform: translateY(-1px);
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.62;
+    transform: none;
 }
 
 .stat-pill {
@@ -504,6 +546,22 @@ strong {
     background: var(--surface);
 }
 
+.panel--subtle {
+    padding: 1rem 1.2rem;
+    background: rgba(149, 158, 253, 0.12);
+}
+
+.panel--subtle p,
+.support-copy {
+    margin: 0;
+}
+
+.support-copy {
+    margin-top: 0.8rem;
+    font-size: 0.92rem;
+    color: rgba(255, 255, 255, 0.82);
+}
+
 .panel--accent {
     color: #27308a;
     background: linear-gradient(160deg, rgba(149, 158, 253, 0.82), rgba(224, 224, 255, 0.96));
@@ -516,6 +574,10 @@ strong {
 
 .panel--accent-soft {
     background: linear-gradient(160deg, rgba(149, 158, 253, 0.18), rgba(255, 255, 255, 0.95));
+}
+
+.panel--profile-summary {
+    background: linear-gradient(160deg, rgba(0, 108, 70, 0.08), rgba(255, 255, 255, 0.96));
 }
 
 .panel--promo {
@@ -824,6 +886,93 @@ strong {
     gap: 0.85rem;
 }
 
+.profile-bookings-grid,
+.profile-meta-grid,
+.profile-highlight-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.profile-bookings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.profile-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.profile-booking-card {
+    padding: 1.25rem;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(186, 203, 190, 0.75);
+    box-shadow: var(--shadow);
+}
+
+.profile-booking-card--train {
+    background: linear-gradient(160deg, rgba(76, 86, 175, 0.12), rgba(255, 255, 255, 0.98));
+}
+
+.profile-booking-card--bus {
+    background: linear-gradient(160deg, rgba(239, 139, 44, 0.16), rgba(255, 255, 255, 0.98));
+}
+
+.profile-booking-card--carpool {
+    background: linear-gradient(160deg, rgba(93, 139, 179, 0.16), rgba(255, 255, 255, 0.98));
+}
+
+.profile-booking-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.profile-booking-head h3 {
+    margin: 0.65rem 0 0;
+}
+
+.profile-booking-card p {
+    margin: 0 0 1rem;
+}
+
+.pill--muted {
+    background: rgba(82, 97, 88, 0.12);
+    color: var(--muted);
+}
+
+.route-suggestions-grid,
+.rewards-wallet {
+    display: grid;
+    gap: 1rem;
+}
+
+.route-suggestions-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: 1rem;
+}
+
+.route-suggestion-card {
+    padding: 1.1rem;
+    border-radius: 1.3rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(186, 203, 190, 0.75);
+}
+
+.route-suggestion-card p {
+    margin: 0.6rem 0 1rem;
+}
+
+.route-suggestion-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+}
+
 .driver-card {
     display: flex;
     align-items: center;
@@ -892,6 +1041,31 @@ strong {
     padding: 1rem;
     border-radius: 1.5rem;
     background: var(--surface-low);
+}
+
+.qr-sample--barcode {
+    padding: 1.4rem;
+}
+
+.passport-barcode {
+    display: flex;
+    align-items: stretch;
+    gap: 0.18rem;
+    width: min(100%, 18rem);
+    height: 7rem;
+    padding: 0.9rem;
+    border-radius: 1rem;
+    background: white;
+}
+
+.passport-barcode span {
+    flex: 1;
+    border-radius: 0.15rem;
+    background: #181c1b;
+}
+
+.passport-barcode span.is-wide {
+    flex: 2;
 }
 
 .qr-grid {
@@ -1007,6 +1181,11 @@ strong {
     background: rgba(255, 255, 255, 0.95);
 }
 
+.reward-card--selected {
+    border-color: rgba(0, 108, 70, 0.45);
+    box-shadow: 0 20px 30px rgba(0, 108, 70, 0.12);
+}
+
 .reward-media {
     min-height: 8rem;
     border-radius: 1rem;
@@ -1087,6 +1266,8 @@ strong {
     .grid-two,
     .metric-grid,
     .rewards-grid,
+    .route-suggestions-grid,
+    .profile-bookings-grid,
     .trip-summary,
     .ticket-grid,
     .selector-grid,

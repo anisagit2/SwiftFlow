@@ -10,7 +10,7 @@ const createTimeOptions = (startHour, endHour, intervalMinutes = 30) => {
     return options;
 };
 
-export const createInitialState = () => ({
+export const createSeedState = () => ({
     activeTab: "explore",
     countdownSeconds: 28 * 60 + 42,
     checkInAccepted: false,

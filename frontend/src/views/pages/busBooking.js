@@ -1,6 +1,7 @@
 import { renderOptions } from "../helpers.js";
 
 export const renderBusBookingPage = (state) => `
+    ${state.pendingAction === "confirm-bus" ? `<section class="panel panel--subtle"><p>Saving your fallback bus booking...</p></section>` : ""}
     <section class="hero-card hero-card--bus">
         <div class="hero-copy">
             <div class="booking-head">
@@ -79,22 +80,27 @@ export const renderBusBookingPage = (state) => `
                     <select data-field="bus-payment">${renderOptions(state.busPaymentOptions, state.busBooking.paymentMethod)}</select>
                 </label>
                 <div class="payment-row">
-                    <small>Method</small>
-                    <strong>${state.busBooking.paymentMethod}</strong>
-                </div>
-                <div class="payment-row">
-                    <small>Ticket type</small>
-                    <strong>Checkpoint express bus</strong>
-                </div>
-                <div class="payment-row">
                     <small>Status</small>
-                    <strong>Ready to charge after booking</strong>
+                    <strong>${state.busBooking.paymentStatus}</strong>
+                </div>
+                <div class="payment-row">
+                    <small>Confirmation</small>
+                    <strong>${state.busBooking.confirmationCode ?? "Not confirmed yet"}</strong>
                 </div>
             </div>
-            <button class="primary-action primary-action--light" data-nav="booking">
-                <span>Compare with RTS</span>
-                <span class="material-symbols-outlined">compare_arrows</span>
-            </button>
+            <div class="stack-actions">
+                <button class="primary-action primary-action--light" data-action="confirm-bus" ${state.pendingAction ? "disabled" : ""}>
+                    <span>${state.busBooking.confirmed ? "Bus Booking Confirmed" : "Confirm Bus Booking"}</span>
+                    <span class="material-symbols-outlined">${state.busBooking.confirmed ? "check_circle" : "directions_bus"}</span>
+                </button>
+                <button class="secondary-action" data-nav="booking" ${state.pendingAction ? "disabled" : ""}>
+                    <span>Compare with RTS</span>
+                    <span class="material-symbols-outlined">compare_arrows</span>
+                </button>
+            </div>
+            <p class="support-copy">
+                ${state.busBooking.confirmed ? "Your fallback bus choice is now persisted and can be reopened after refresh." : "Confirm the bus booking to save the selected route, departure time, and payment method."}
+            </p>
         </article>
     </section>
 

@@ -1,108 +1,307 @@
 import { createInitialState } from "../data/initialState.js";
-import {
-    acceptAlert,
-    activateCheckIn,
-    openPass,
-    redeemReward,
-    selectDriver,
-    setActiveTab,
-    updateBusOrigin,
-    updateBusPayment,
-    updateBusTime,
-    updateCarpoolPayment,
-    updateDestination,
-    updateOrigin,
-    updateTrainPayment,
-    updateTrainTime,
-} from "../state/mutations.js";
+import { apiClient } from "../api/client.js";
+import { openPass, setActiveTab } from "../state/mutations.js";
 import { syncDerivedTimes, formatCountdown } from "../utils/time.js";
 import { renderLayout } from "../views/layout.js";
 import { renderPage } from "../views/renderPage.js";
 
 export const createApp = (root) => {
-    const state = createInitialState();
+    const state = Object.assign(createInitialState(), {
+        isBootstrapping: true,
+        pendingAction: "",
+        errorMessage: "",
+        noticeMessage: "",
+        selectedRewardId: "vep-offset",
+        showAlertRoutes: false,
+        profileQrMode: "rts",
+    });
+
+    const applyServerState = (serverState, options = {}) => {
+        const {
+            preserveTab = true,
+            preserveCountdown = true,
+        } = options;
+        const currentActiveTab = state.activeTab;
+        const currentCountdownSeconds = state.countdownSeconds;
+        const uiState = {
+            isBootstrapping: state.isBootstrapping,
+            pendingAction: state.pendingAction,
+            errorMessage: state.errorMessage,
+            noticeMessage: state.noticeMessage,
+            selectedRewardId: state.selectedRewardId,
+            showAlertRoutes: state.showAlertRoutes,
+            profileQrMode: state.profileQrMode,
+        };
+
+        Object.assign(state, serverState, uiState);
+        state.activeTab = preserveTab ? currentActiveTab : serverState.activeTab;
+        state.countdownSeconds = preserveCountdown ? currentCountdownSeconds : serverState.countdownSeconds;
+    };
 
     const render = () => {
         root.innerHTML = renderLayout(state, renderPage(state));
     };
 
-    const handleAction = (actionTarget) => {
-        const { action, reward, target, driver } = actionTarget.dataset;
+    const syncStateFromServer = async (options = {}) => {
+        const serverState = await apiClient.getState();
+        applyServerState(serverState, options);
+        syncDerivedTimes(state);
+    };
+
+    const runRequest = async (pendingAction, task, options = {}) => {
+        const {
+            successMessage = "",
+            nextTab,
+            preserveTab = true,
+        } = options;
+
+        state.pendingAction = pendingAction;
+        state.errorMessage = "";
+        state.noticeMessage = "";
+        render();
+
+        try {
+            await task();
+            await syncStateFromServer({ preserveTab });
+
+            if (nextTab) {
+                state.activeTab = nextTab;
+            }
+
+            state.noticeMessage = successMessage;
+        } catch (error) {
+            state.errorMessage = error instanceof Error ? error.message : "Something went wrong while syncing with the backend.";
+        } finally {
+            state.isBootstrapping = false;
+            state.pendingAction = "";
+            render();
+        }
+    };
+
+    const handleAction = async (actionTarget) => {
+        const { action, reward, target, driver, mode } = actionTarget.dataset;
 
         if (action === "accept-checkin") {
-            activateCheckIn(state);
+            await runRequest("accept-checkin", () => apiClient.acceptCheckIn(), {
+                successMessage: "RTS slot secured and train page opened.",
+                nextTab: "booking",
+            });
             return;
         }
 
         if (action === "accept-alert") {
-            acceptAlert(state);
+            await runRequest("accept-alert", () => apiClient.acceptAlert(), {
+                successMessage: "New alert slot accepted and updated.",
+                nextTab: "alerts",
+            });
             return;
         }
 
         if (action === "open-pass") {
+            state.profileQrMode = mode ?? "rts";
             openPass(state);
+            state.noticeMessage = state.profileQrMode === "precheckin"
+                ? "Passport pre-check-in pass opened in your profile."
+                : "Booked RTS QR opened in your profile.";
+            state.errorMessage = "";
+            render();
+            return;
+        }
+
+        if (action === "show-profile-pass") {
+            state.profileQrMode = mode ?? "rts";
+            state.noticeMessage = state.profileQrMode === "precheckin"
+                ? "Showing passport pre-check-in pass."
+                : "Showing booked RTS QR.";
+            state.errorMessage = "";
+            render();
             return;
         }
 
         if (action === "switch-tab" && target) {
             setActiveTab(state, target);
+            render();
+            return;
+        }
+
+        if (action === "toggle-alert-routes") {
+            state.showAlertRoutes = !state.showAlertRoutes;
+            render();
+            return;
+        }
+
+        if (action === "select-reward" && reward) {
+            state.selectedRewardId = reward;
+            state.noticeMessage = `Selected ${state.rewards.find((item) => item.id === reward)?.name ?? "reward"} for redemption.`;
+            state.errorMessage = "";
+            render();
             return;
         }
 
         if (action === "redeem" && reward) {
-            redeemReward(state, reward);
+            await runRequest("redeem", () => apiClient.redeemReward(reward), {
+                successMessage: "Reward redeemed successfully.",
+                nextTab: "credits",
+            });
             return;
         }
 
         if (action === "select-driver" && driver) {
-            selectDriver(state, driver);
+            state.selectedCarpoolDriverId = driver;
+            state.noticeMessage = "Driver selected.";
+            state.errorMessage = "";
+            render();
+            await runRequest("select-driver", () => apiClient.selectCarpoolDriver(driver), {
+                successMessage: "Selected carpool driver updated.",
+            });
+            return;
+        }
+
+        if (action === "confirm-train") {
+            await runRequest("confirm-train", () => apiClient.confirmTrainBooking(), {
+                successMessage: "RTS booking confirmed.",
+                nextTab: "booking",
+            });
+            return;
+        }
+
+        if (action === "confirm-bus") {
+            await runRequest("confirm-bus", () => apiClient.confirmBusBooking(), {
+                successMessage: "Bus booking confirmed.",
+                nextTab: "bus-booking",
+            });
+            return;
+        }
+
+        if (action === "confirm-carpool") {
+            state.activeTab = "carpool-pickup";
+            state.noticeMessage = "Opening reserved pickup route...";
+            state.errorMessage = "";
+            render();
+            await runRequest("confirm-carpool", () => apiClient.confirmCarpoolBooking(), {
+                successMessage: "Carpool seat reserved.",
+                nextTab: "carpool-pickup",
+            });
+            return;
+        }
+
+        if (action === "reset-state") {
+            await runRequest("reset-state", () => apiClient.resetState(), {
+                successMessage: "Demo data reset. You can replay the booking flow now.",
+                nextTab: "explore",
+                preserveTab: false,
+            });
         }
     };
 
-    const handleFieldChange = (field, value) => {
+    const handleFieldChange = async (field, value) => {
         if (field === "destination") {
-            updateDestination(state, value);
+            if (state.activeTab === "bus-booking") {
+                state.busBooking.destination = value;
+            } else {
+                state.booking.destination = value;
+            }
+            state.noticeMessage = "Destination updated.";
+            state.errorMessage = "";
+            render();
+
+            const updateDestination = state.activeTab === "bus-booking"
+                ? () => apiClient.updateBusBooking({ destination: value })
+                : () => apiClient.updateTrainBooking({ destination: value });
+
+            await runRequest(field, updateDestination, {
+                successMessage: "Destination updated.",
+            });
             return;
         }
 
         if (field === "origin") {
-            updateOrigin(state, value);
+            state.booking.origin = value;
+            state.noticeMessage = "Origin updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateTrainBooking({ origin: value }), {
+                successMessage: "Origin updated.",
+            });
             return;
         }
 
         if (field === "bus-origin") {
-            updateBusOrigin(state, value);
+            state.busBooking.origin = value;
+            state.noticeMessage = "Bus origin updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateBusBooking({ origin: value }), {
+                successMessage: "Bus origin updated.",
+            });
             return;
         }
 
         if (field === "train-time") {
-            updateTrainTime(state, value);
+            state.booking.departureTime = value;
+            syncDerivedTimes(state);
+            state.noticeMessage = "RTS departure time updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateTrainBooking({ departureTime: value }), {
+                successMessage: "RTS departure time updated.",
+            });
             return;
         }
 
         if (field === "bus-time") {
-            updateBusTime(state, value);
+            state.busBooking.departureTime = value;
+            syncDerivedTimes(state);
+            state.noticeMessage = "Bus departure time updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateBusBooking({ departureTime: value }), {
+                successMessage: "Bus departure time updated.",
+            });
             return;
         }
 
         if (field === "train-payment") {
-            updateTrainPayment(state, value);
+            state.booking.paymentMethod = value;
+            state.noticeMessage = "RTS payment method updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateTrainBooking({ paymentMethod: value }), {
+                successMessage: "RTS payment method updated.",
+            });
             return;
         }
 
         if (field === "bus-payment") {
-            updateBusPayment(state, value);
+            state.busBooking.paymentMethod = value;
+            state.noticeMessage = "Bus payment method updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateBusBooking({ paymentMethod: value }), {
+                successMessage: "Bus payment method updated.",
+            });
             return;
         }
 
         if (field === "carpool-payment") {
-            updateCarpoolPayment(state, value);
+            const selectedDriver = state.carpoolDrivers.find((item) => item.id === state.selectedCarpoolDriverId);
+            if (selectedDriver) {
+                selectedDriver.paymentMethod = value;
+            }
+            state.noticeMessage = "Carpool payment method updated.";
+            state.errorMessage = "";
+            render();
+            await runRequest(field, () => apiClient.updateCarpoolPayment(value), {
+                successMessage: "Carpool payment method updated.",
+            });
         }
     };
 
-    root.addEventListener("click", (event) => {
+    root.addEventListener("click", async (event) => {
         const navTarget = event.target.closest("[data-nav]");
         if (navTarget) {
+            state.errorMessage = "";
+            state.noticeMessage = "";
             setActiveTab(state, navTarget.dataset.nav);
             render();
             return;
@@ -113,18 +312,16 @@ export const createApp = (root) => {
             return;
         }
 
-        handleAction(actionTarget);
-        render();
+        await handleAction(actionTarget);
     });
 
-    root.addEventListener("change", (event) => {
+    root.addEventListener("change", async (event) => {
         const field = event.target.dataset.field;
         if (!field) {
             return;
         }
 
-        handleFieldChange(field, event.target.value);
-        render();
+        await handleFieldChange(field, event.target.value);
     });
 
     window.setInterval(() => {
@@ -140,4 +337,13 @@ export const createApp = (root) => {
 
     syncDerivedTimes(state);
     render();
+
+    syncStateFromServer({ preserveTab: false, preserveCountdown: false })
+        .catch((error) => {
+            state.errorMessage = error instanceof Error ? error.message : "Unable to reach the backend.";
+        })
+        .finally(() => {
+            state.isBootstrapping = false;
+            render();
+        });
 };

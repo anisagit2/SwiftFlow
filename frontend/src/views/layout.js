@@ -1,5 +1,5 @@
 import { topbarTitle } from "../state/selectors.js";
-import { renderNavItem } from "./helpers.js";
+import { renderNavItem, renderRequestBanner } from "./helpers.js";
 
 export const renderLayout = (state, content) => `
     <div class="page-shell">
@@ -21,6 +21,7 @@ export const renderLayout = (state, content) => `
         </header>
 
         <main class="page-content">
+            ${renderRequestBanner(state)}
             ${content}
         </main>
     </div>

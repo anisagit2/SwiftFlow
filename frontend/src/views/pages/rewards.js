@@ -1,55 +1,81 @@
-export const renderRewardsPage = (state) => `
-    <section class="hero-card hero-card--rewards">
-        <div class="hero-copy">
-            <div class="pill">
-                <span class="material-symbols-outlined filled">redeem</span>
-                <span>Redeem sustainable value</span>
-            </div>
-            <h1>Turn border-saving behavior into local benefits.</h1>
-            <p>Use your green credits for parking, public transit, shopping, and everyday perks that reinforce lower-emission travel.</p>
-        </div>
-    </section>
+const selectedReward = (state) =>
+    state.rewards.find((reward) => reward.id === state.selectedRewardId) ?? state.rewards[0];
 
-    <section class="grid-two">
-        <article class="panel panel--feature">
-            <span class="eyebrow">Trending</span>
-            <h2>VEP Charge Offset</h2>
-            <p>Get 50% off your next Vehicle Entry Permit charge when entering the city core.</p>
-            <div class="feature-footer">
-                <strong>1,200 credits</strong>
-                <button class="primary-action" data-action="redeem" data-reward="weekly-pass">Redeem now</button>
-            </div>
-        </article>
+export const renderRewardsPage = (state) => {
+    const reward = selectedReward(state);
 
-        <article class="panel panel--accent-soft">
-            <span class="material-symbols-outlined">eco</span>
-            <h3>Eco-Warrior Status</h3>
-            <p>Unlock exclusive monthly rewards and priority transit access.</p>
-            <strong>5,000 total lifetime credits</strong>
-        </article>
-    </section>
-
-    <section class="panel">
-        <div class="section-head">
-            <div>
-                <span class="eyebrow">Marketplace</span>
-                <h2>Transit and lifestyle rewards</h2>
+    return `
+        <section class="hero-card hero-card--rewards">
+            <div class="hero-copy">
+                <div class="pill">
+                    <span class="material-symbols-outlined filled">redeem</span>
+                    <span>Redeem sustainable value</span>
+                </div>
+                <h1>Turn border-saving behavior into local benefits.</h1>
+                <p>Use your green credits for parking, public transit, shopping, and everyday perks that reinforce lower-emission travel.</p>
             </div>
-        </div>
-        <div class="rewards-grid">
-            ${state.rewards.map((reward) => `
-                <article class="reward-card">
-                    <div class="reward-media"></div>
-                    <h4>${reward.name}</h4>
-                    <p>${reward.description}</p>
-                    <div class="reward-footer">
-                        <span>${reward.cost} credits</span>
-                        <button class="icon-action" data-action="redeem" data-reward="${reward.id}" ${state.balance < reward.cost ? "disabled" : ""}>
-                            <span class="material-symbols-outlined">chevron_right</span>
-                        </button>
+        </section>
+
+        <section class="grid-two">
+            <article class="panel panel--feature">
+                <span class="eyebrow">Trending</span>
+                <h2>${state.rewards[0].name}</h2>
+                <p>${state.rewards[0].description}</p>
+                <div class="feature-footer">
+                    <strong>${state.rewards[0].cost} credits</strong>
+                    <button class="primary-action" data-action="select-reward" data-reward="${state.rewards[0].id}">Redeem now</button>
+                </div>
+            </article>
+
+            <article class="panel panel--accent-soft rewards-wallet">
+                <span class="eyebrow">Credit wallet</span>
+                <h3>${state.balance.toLocaleString()} credits available</h3>
+                <p>Choose a reward below, review the cost, and decide exactly where your credits should go.</p>
+                <div class="payment-list">
+                    <div class="payment-row">
+                        <small>Selected reward</small>
+                        <strong>${reward.name}</strong>
                     </div>
-                </article>
-            `).join("")}
-        </div>
-    </section>
-`;
+                    <div class="payment-row">
+                        <small>Required</small>
+                        <strong>${reward.cost} credits</strong>
+                    </div>
+                    <div class="payment-row">
+                        <small>Remaining</small>
+                        <strong>${Math.max(0, state.balance - reward.cost).toLocaleString()} credits</strong>
+                    </div>
+                </div>
+                <div class="stack-actions">
+                    <button class="primary-action" data-action="redeem" data-reward="${reward.id}" ${state.balance < reward.cost || state.pendingAction ? "disabled" : ""}>
+                        <span>${state.balance < reward.cost ? "Not enough credits" : `Use credits on ${reward.name}`}</span>
+                        <span class="material-symbols-outlined">redeem</span>
+                    </button>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Marketplace</span>
+                    <h2>Transit and lifestyle rewards</h2>
+                </div>
+            </div>
+            <div class="rewards-grid">
+                ${state.rewards.map((item) => `
+                    <article class="reward-card ${state.selectedRewardId === item.id ? "reward-card--selected" : ""}">
+                        <div class="reward-media"></div>
+                        <h4>${item.name}</h4>
+                        <p>${item.description}</p>
+                        <div class="reward-footer">
+                            <span>${item.cost} credits</span>
+                            <button class="icon-action" data-action="select-reward" data-reward="${item.id}">
+                                <span class="material-symbols-outlined">${state.selectedRewardId === item.id ? "check_circle" : "chevron_right"}</span>
+                            </button>
+                        </div>
+                    </article>
+                `).join("")}
+            </div>
+        </section>
+    `;
+};

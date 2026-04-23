@@ -23,6 +23,10 @@ export const renderExplorePage = (state) => {
                         <span>View RTS Booking</span>
                         <span class="material-symbols-outlined">arrow_forward</span>
                     </button>
+                    <button class="secondary-action" data-nav="passport-checkin">
+                        <span>Passport pre-check-in</span>
+                        <span class="material-symbols-outlined">badge</span>
+                    </button>
                     <div class="stat-pill">
                         <span class="material-symbols-outlined">timer</span>
                         <div>
@@ -160,6 +164,7 @@ export const renderExplorePage = (state) => {
             <div class="notice-actions">
                 <button class="secondary-action" data-nav="alerts">See incident detail</button>
                 <button class="secondary-action" data-nav="booking">Open ticket</button>
+                <button class="secondary-action" data-nav="passport-checkin">Passport pre-check-in</button>
             </div>
         </section>
     `;

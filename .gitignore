@@ -17,6 +17,7 @@ jspm_packages/
 # Build and configs
 dist/
 build/
+backend/data/*.sqlite
 .env
 .env.local
 .env.development.local
