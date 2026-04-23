@@ -13,10 +13,14 @@ const renderBookingStatus = (label, confirmed) => `
     </div>
 `;
 
+const hasConfirmedDocumentSubmission = (state) => Object.values(state.documentSubmissionStatuses ?? {})
+    .includes("confirmed");
+
 const getActivePassMode = (state) => {
     const requestedMode = state.profileQrMode ?? "auto";
+    const canShowPrecheckin = hasConfirmedDocumentSubmission(state);
 
-    if (requestedMode === "precheckin") {
+    if (requestedMode === "precheckin" && canShowPrecheckin) {
         return "precheckin";
     }
 
@@ -26,14 +30,6 @@ const getActivePassMode = (state) => {
 
     if (requestedMode === "bus" && state.busBooking?.confirmed) {
         return "bus";
-    }
-
-    if (requestedMode === "carpool" && state.carpoolBooking?.confirmed) {
-        return "carpool";
-    }
-
-    if (state.carpoolBooking?.confirmed) {
-        return "carpool";
     }
 
     if (state.busBooking?.confirmed) {
@@ -82,22 +78,6 @@ const buildPassDetails = (state, driver, precheckinCode) => {
         };
     }
 
-    if (mode === "carpool") {
-        return {
-            mode,
-            eyebrow: "Taxi pass",
-            title: "Taxi carpool pickup pass",
-            copy: "This pass is tied to the reserved taxi pool seat, driver, pickup point, and payment reference.",
-            icon: "local_taxi",
-            code: state.carpoolBooking.confirmationCode ?? "CAR-PENDING",
-            status: state.carpoolBooking.confirmed ? state.carpoolBooking.status : "Carpool preview only",
-            gate: driver.pickupSpot,
-            window: `${driver.departureTime} departure`,
-            destination: driver.destination,
-            label: "Taxi",
-        };
-    }
-
     return {
         mode,
         eyebrow: "RTS pass",
@@ -121,6 +101,7 @@ export const renderProfilePage = (state) => {
     const hasTrainBooking = Boolean(state.booking);
     const hasBusBooking = Boolean(state.busBooking);
     const hasCarpoolReservation = Boolean(state.carpoolBooking?.confirmed);
+    const canShowPrecheckinPass = hasConfirmedDocumentSubmission(state);
     const activeTrips = profile.activeTrips ?? [state.booking.confirmed, state.busBooking.confirmed, hasCarpoolReservation].filter(Boolean).length;
     const precheckinCode = `PCHK-${state.booking.departureTime.replace(":", "")}-${state.routeGate.replace(/\s+/g, "").slice(0, 4).toUpperCase()}`;
     const passDetails = buildPassDetails(state, driver, precheckinCode);
@@ -282,10 +263,6 @@ export const renderProfilePage = (state) => {
                 </div>
                 <div class="stack-actions">
                     <button class="secondary-action" data-nav="passport-checkin">Open passport pre-check-in</button>
-                    <button class="secondary-action" data-nav="profile">
-                        <span>Review saved bookings</span>
-                        <span class="material-symbols-outlined">confirmation_number</span>
-                    </button>
                 </div>
             </article>
 
@@ -296,8 +273,7 @@ export const renderProfilePage = (state) => {
                 <div class="stack-actions">
                     ${state.booking.confirmed ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="rts">Show RTS QR</button>` : ""}
                     ${state.busBooking.confirmed ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="bus">Show bus pass</button>` : ""}
-                    ${state.carpoolBooking.confirmed ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="carpool">Show taxi pass</button>` : ""}
-                    <button class="secondary-action" data-action="show-profile-pass" data-mode="precheckin">Show pre-check-in pass</button>
+                    ${canShowPrecheckinPass ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="precheckin">Show pre-check-in pass</button>` : ""}
                 </div>
                 ${passDetails.mode === "precheckin" ? `
                     <div class="qr-sample qr-sample--barcode">

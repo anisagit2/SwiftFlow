@@ -72,13 +72,9 @@ export const renderPassportCheckinPage = (state) => {
                     </div>
                 </div>
                 <div class="stack-actions">
-                    <button class="primary-action" data-action="accept-checkin">
-                        <span>${state.checkInAccepted ? "Pre-check-in complete" : "Start passport pre-check-in"}</span>
-                        <span class="material-symbols-outlined">badge</span>
-                    </button>
-                    <button class="secondary-action" data-action="open-pass" data-mode="precheckin">
-                        <span>Open pre-check-in pass</span>
-                        <span class="material-symbols-outlined">qr_code_2</span>
+                    <button class="primary-action" data-nav="document-readiness">
+                        <span>${state.checkInAccepted ? "Review document readiness" : "Start passport pre-check-in"}</span>
+                        <span class="material-symbols-outlined">verified_user</span>
                     </button>
                 </div>
             </article>

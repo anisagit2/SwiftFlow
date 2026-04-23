@@ -70,18 +70,35 @@ export const renderAlertsPage = (state) => {
             <section class="panel">
                 <div class="section-head">
                     <div>
-                        <span class="eyebrow">Alternative routes</span>
-                        <h2>Available ways to cross right now</h2>
+                        <span class="eyebrow">Route comparison</span>
+                        <h2>Woodlands road jam vs RTS train</h2>
                     </div>
                     <span class="material-symbols-outlined accent">alt_route</span>
                 </div>
                 <div class="route-suggestions-grid">
                     <article class="route-suggestion-card">
                         <div class="route-suggestion-head">
-                            <strong>RTS Link</strong>
-                            <span>${state.booking.departureTime}</span>
+                            <strong>Road via Woodlands</strong>
+                            <span class="danger-text">Heavy jam</span>
                         </div>
-                        <p>Fastest train option with platform access, lower congestion exposure, and QR readiness after confirmation.</p>
+                        <p>High congestion detected at Woodlands Checkpoint. Road arrival is trending late for the 9:30 AM target.</p>
+                        <div class="forecast-row">
+                            <div>
+                                <small>Traffic speed</small>
+                                <strong class="danger-text">15 km/h</strong>
+                            </div>
+                            <div>
+                                <small>Delay risk</small>
+                                <strong class="danger-text">High</strong>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="route-suggestion-card">
+                        <div class="route-suggestion-head">
+                            <strong>RTS Link</strong>
+                            <span class="trend-up">${state.booking.departureTime}</span>
+                        </div>
+                        <p>Faster train option with platform access, lower congestion exposure, and QR readiness after confirmation.</p>
                         <button class="secondary-action" data-nav="booking">Open RTS booking</button>
                     </article>
                     <article class="route-suggestion-card">

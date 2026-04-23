@@ -63,9 +63,6 @@ export const renderCarpoolPickupPage = (state) => {
                         <strong>${driver.hovLane}</strong>
                     </div>
                 </div>
-                <div class="stack-actions">
-                    <button class="secondary-action" data-nav="profile">Open travel wallet</button>
-                </div>
             </article>
         </section>
     `;

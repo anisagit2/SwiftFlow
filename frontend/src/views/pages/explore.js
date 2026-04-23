@@ -57,7 +57,7 @@ export const renderExplorePage = (state) => {
                         <select data-field="destination">${renderOptions(state.locationOptions, state.booking.destination)}</select>
                     </label>
                     <label class="field-card">
-                        <small>RTS time</small>
+                        <small>Departure time</small>
                         <select data-field="train-time">${renderOptions(state.trainTimeOptions, state.booking.departureTime)}</select>
                     </label>
                 </div>
@@ -150,22 +150,6 @@ export const renderExplorePage = (state) => {
                     <span>${driver.credits}</span>
                 </div>
             </article>
-        </section>
-
-        <section class="panel panel--notice">
-            <div>
-                <span class="eyebrow">Travel status</span>
-                <h3>${state.booking.departureTime} RTS selected</h3>
-                <p>
-                    You’ve already selected a destination and confirmed your main train. SwiftFlow keeps bus and taxi carpool visible
-                    so you can compare departure time, arrival time, and border reliability without rebooking from scratch.
-                </p>
-            </div>
-            <div class="notice-actions">
-                <button class="secondary-action" data-nav="alerts">See incident detail</button>
-                <button class="secondary-action" data-nav="booking">Open ticket</button>
-                <button class="secondary-action" data-nav="passport-checkin">Passport pre-check-in</button>
-            </div>
         </section>
     `;
 };

@@ -93,6 +93,12 @@ export const renderBusBookingPage = (state) => `
                     <span>${state.busBooking.confirmed ? "Bus Booking Confirmed" : "Confirm Bus Booking"}</span>
                     <span class="material-symbols-outlined">${state.busBooking.confirmed ? "check_circle" : "directions_bus"}</span>
                 </button>
+                ${state.busBooking.confirmed ? `
+                    <button class="secondary-action" data-action="open-pass" data-mode="bus">
+                        <span>Show QR Pass</span>
+                        <span class="material-symbols-outlined">qr_code_2</span>
+                    </button>
+                ` : ""}
                 <button class="secondary-action" data-nav="booking" ${state.pendingAction ? "disabled" : ""}>
                     <span>Compare with RTS</span>
                     <span class="material-symbols-outlined">compare_arrows</span>

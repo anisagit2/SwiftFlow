@@ -4,11 +4,13 @@ export const selectedCarpoolDriver = (state) =>
 export const creditsProgress = (state) => Math.min(100, (state.balance / state.goalCredits) * 100);
 
 export const topbarTitle = (state) => {
+    if (state.activeTab === "notifications") return "Notifications";
     if (state.activeTab === "alerts") return "Live Alerts";
     if (state.activeTab === "booking") return "RTS Booking";
     if (state.activeTab === "bus-booking") return "Bus Booking";
     if (state.activeTab === "carpool-booking") return "Taxi Carpool";
     if (state.activeTab === "carpool-pickup") return "Pickup Map";
+    if (state.activeTab === "document-readiness") return "Document Check";
     if (state.activeTab === "passport-checkin") return "Passport Check-In";
     if (state.activeTab === "credits") return "Green Credits";
     if (state.activeTab === "rewards") return "Rewards Marketplace";

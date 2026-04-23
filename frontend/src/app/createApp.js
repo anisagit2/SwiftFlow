@@ -8,8 +8,20 @@ import { renderPage } from "../views/renderPage.js";
 
 const buildConfirmationCode = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 const currentTimestamp = () => new Date().toISOString();
+const delay = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+const createDocumentSubmissionStatuses = () => ({
+    sgac: "idle",
+    mdac: "idle",
+});
+const normalizeDocumentSubmissionStatuses = (statuses = {}) => ({
+    ...createDocumentSubmissionStatuses(),
+    ...statuses,
+});
+const hasConfirmedDocumentSubmission = (appState) => Object.values(appState.documentSubmissionStatuses ?? {})
+    .includes("confirmed");
 
 export const createApp = (root) => {
+    let pendingScrollTargetId = "";
     const state = Object.assign(createInitialState(), {
         isBootstrapping: true,
         isAuthenticated: false,
@@ -24,6 +36,7 @@ export const createApp = (root) => {
         profileQrMode: "rts",
         isEditingProfile: false,
         profileDraft: null,
+        documentSubmissionStatuses: createDocumentSubmissionStatuses(),
     });
 
     const applyServerState = (serverState, options = {}) => {
@@ -47,9 +60,11 @@ export const createApp = (root) => {
             authInitials: state.authInitials,
             isEditingProfile: state.isEditingProfile,
             profileDraft: state.profileDraft,
+            documentSubmissionStatuses: normalizeDocumentSubmissionStatuses(state.documentSubmissionStatuses),
         };
 
         Object.assign(state, serverState, uiState);
+        state.documentSubmissionStatuses = normalizeDocumentSubmissionStatuses(state.documentSubmissionStatuses);
         state.activeTab = preserveTab ? currentActiveTab : serverState.activeTab;
         state.countdownSeconds = preserveCountdown ? currentCountdownSeconds : serverState.countdownSeconds;
 
@@ -63,6 +78,16 @@ export const createApp = (root) => {
 
     const render = () => {
         root.innerHTML = renderLayout(state, renderPage(state));
+        if (pendingScrollTargetId) {
+            const targetId = pendingScrollTargetId;
+            pendingScrollTargetId = "";
+            window.requestAnimationFrame(() => {
+                document.getElementById(targetId)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                });
+            });
+        }
     };
 
     const refreshProfileSummary = () => {
@@ -146,8 +171,23 @@ export const createApp = (root) => {
         state.carpoolBooking.confirmedAt = state.carpoolBooking.confirmedAt ?? currentTimestamp();
         state.carpoolBooking.updatedAt = currentTimestamp();
         state.routeMode = "Taxi Carpool";
-        state.profileQrMode = "carpool";
         refreshProfileSummary();
+    };
+
+    const activateCheckInLocally = () => {
+        if (!state.checkInAccepted) {
+            state.checkInAccepted = true;
+            state.passReady = true;
+            state.balance += 120;
+            state.recentCredits.unshift({
+                title: "Priority QR Check-In",
+                detail: "Accepted low-volume border window",
+                amount: 120,
+                time: "Just now",
+                icon: "qr_code_2",
+            });
+        }
+        state.activeTab = "booking";
     };
 
     const saveProfileLocally = () => {
@@ -225,10 +265,84 @@ export const createApp = (root) => {
         const { action, reward, target, driver, mode } = actionTarget.dataset;
 
         if (action === "accept-checkin") {
-            await runRequest("accept-checkin", () => apiClient.acceptCheckIn(), {
+            const useBackend = state.isAuthenticated && state.isBackendConnected;
+            await runRequest("accept-checkin", useBackend ? () => apiClient.acceptCheckIn() : activateCheckInLocally, {
                 successMessage: "RTS slot secured and train page opened.",
                 nextTab: "booking",
+                syncAfter: useBackend,
             });
+            return;
+        }
+
+        if (action === "open-alert-comparison") {
+            state.activeTab = "alerts";
+            state.showAlertRoutes = true;
+            state.noticeMessage = "Showing road congestion against faster train options.";
+            state.errorMessage = "";
+            render();
+            return;
+        }
+
+        if (action === "submit-arrival-card") {
+            const card = actionTarget.dataset.card === "mdac" ? "mdac" : "sgac";
+            state.documentSubmissionStatuses = {
+                ...normalizeDocumentSubmissionStatuses(state.documentSubmissionStatuses),
+                [card]: "syncing",
+            };
+            state.noticeMessage = "";
+            state.errorMessage = "";
+            render();
+            await delay(800);
+            state.documentSubmissionStatuses = {
+                ...normalizeDocumentSubmissionStatuses(state.documentSubmissionStatuses),
+                [card]: "verifying",
+            };
+            render();
+            await delay(800);
+            state.documentSubmissionStatuses = {
+                ...normalizeDocumentSubmissionStatuses(state.documentSubmissionStatuses),
+                [card]: "confirmed",
+            };
+            state.checkInAccepted = true;
+            state.passReady = true;
+            state.profileQrMode = "precheckin";
+            state.noticeMessage = "Submission confirmed.";
+            render();
+            return;
+        }
+
+        if (action === "open-confirmed-precheckin-pass") {
+            if (!hasConfirmedDocumentSubmission(state)) {
+                state.activeTab = "document-readiness";
+                state.noticeMessage = "Submit SGAC or MDAC before opening the passport QR bar.";
+                state.errorMessage = "";
+                render();
+                return;
+            }
+            state.checkInAccepted = true;
+            state.passReady = true;
+            state.profileQrMode = "precheckin";
+            pendingScrollTargetId = "qr-pass-panel";
+            openPass(state);
+            state.noticeMessage = "Passport pre-check-in pass opened in your profile.";
+            state.errorMessage = "";
+            render();
+            return;
+        }
+
+        if (action === "open-smart-gate-pass") {
+            state.documentSubmissionStatuses = {
+                ...normalizeDocumentSubmissionStatuses(state.documentSubmissionStatuses),
+                sgac: "confirmed",
+            };
+            state.checkInAccepted = true;
+            state.passReady = true;
+            state.profileQrMode = "precheckin";
+            pendingScrollTargetId = "qr-pass-panel";
+            openPass(state);
+            state.noticeMessage = "Smart-Gate passport QR bar opened in your profile.";
+            state.errorMessage = "";
+            render();
             return;
         }
 
@@ -241,21 +355,37 @@ export const createApp = (root) => {
         }
 
         if (action === "open-pass") {
+            if (mode === "precheckin" && !hasConfirmedDocumentSubmission(state)) {
+                state.activeTab = "document-readiness";
+                state.noticeMessage = "Submit SGAC or MDAC before opening the passport QR bar.";
+                state.errorMessage = "";
+                render();
+                return;
+            }
             state.profileQrMode = mode ?? "rts";
+            pendingScrollTargetId = "qr-pass-panel";
             openPass(state);
             state.noticeMessage = state.profileQrMode === "precheckin"
                 ? "Passport pre-check-in pass opened in your profile."
-                : "Booked RTS QR opened in your profile.";
+                : "Travel QR pass opened in your profile.";
             state.errorMessage = "";
             render();
             return;
         }
 
         if (action === "show-profile-pass") {
+            if (mode === "precheckin" && !hasConfirmedDocumentSubmission(state)) {
+                state.activeTab = "document-readiness";
+                state.noticeMessage = "Submit SGAC or MDAC before showing the passport pre-check-in pass.";
+                state.errorMessage = "";
+                render();
+                return;
+            }
             state.profileQrMode = mode ?? "rts";
+            pendingScrollTargetId = "qr-pass-panel";
             state.noticeMessage = state.profileQrMode === "precheckin"
                 ? "Showing passport pre-check-in pass."
-                : "Showing booked RTS QR.";
+                : "Showing travel QR pass.";
             state.errorMessage = "";
             render();
             return;
@@ -348,13 +478,9 @@ export const createApp = (root) => {
         if (action === "confirm-train") {
             const useBackend = state.isAuthenticated && state.isBackendConnected;
             state.profileQrMode = "rts";
-            state.activeTab = "profile";
-            state.noticeMessage = "Confirming RTS booking...";
-            state.errorMessage = "";
-            render();
             await runRequest("confirm-train", useBackend ? () => apiClient.confirmTrainBooking() : confirmTrainLocally, {
                 successMessage: "RTS booking confirmed.",
-                nextTab: "profile",
+                nextTab: "booking",
                 syncAfter: useBackend,
             });
             return;
@@ -363,13 +489,9 @@ export const createApp = (root) => {
         if (action === "confirm-bus") {
             const useBackend = state.isAuthenticated && state.isBackendConnected;
             state.profileQrMode = "bus";
-            state.activeTab = "profile";
-            state.noticeMessage = "Confirming bus booking...";
-            state.errorMessage = "";
-            render();
             await runRequest("confirm-bus", useBackend ? () => apiClient.confirmBusBooking() : confirmBusLocally, {
                 successMessage: "Bus booking confirmed.",
-                nextTab: "profile",
+                nextTab: "bus-booking",
                 syncAfter: useBackend,
             });
             return;
@@ -377,7 +499,6 @@ export const createApp = (root) => {
 
         if (action === "confirm-carpool") {
             state.activeTab = "carpool-pickup";
-            state.profileQrMode = "carpool";
             state.noticeMessage = "Opening reserved pickup route...";
             state.errorMessage = "";
             render();
@@ -409,6 +530,7 @@ export const createApp = (root) => {
                         profileQrMode: "rts",
                         isEditingProfile: false,
                         profileDraft: null,
+                        documentSubmissionStatuses: createDocumentSubmissionStatuses(),
                     });
                 };
 

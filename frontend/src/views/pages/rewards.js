@@ -4,6 +4,11 @@ const selectedReward = (state) =>
 export const renderRewardsPage = (state) => {
     const reward = selectedReward(state);
     const recentRedemptions = state.rewardRedemptions ?? [];
+    const leaderboard = [
+        { rank: 1, name: "GP", points: state.balance, impact: state.ecoSaved },
+        { rank: 2, name: "Alya", points: 2140, impact: "3.8kg" },
+        { rank: 3, name: "Marcus", points: 1880, impact: "3.1kg" },
+    ];
 
     return `
         <section class="hero-card hero-card--rewards">
@@ -15,6 +20,47 @@ export const renderRewardsPage = (state) => {
                 <h1>Turn border-saving behavior into local benefits.</h1>
                 <p>Use your green credits for parking, public transit, shopping, and everyday perks that reinforce lower-emission travel.</p>
             </div>
+        </section>
+
+        <section class="grid-two">
+            <article class="panel panel--accent-soft">
+                <div class="section-head">
+                    <div>
+                        <span class="eyebrow">Sustainability dashboard</span>
+                        <h2>${state.ecoSaved} CO2 saved today</h2>
+                    </div>
+                    <span class="material-symbols-outlined accent">eco</span>
+                </div>
+                <p>Eco-Achievement logged after choosing a lower-emission shuttle or train route instead of a private car.</p>
+                <div class="profile-meta-grid">
+                    <div class="payment-row">
+                        <small>SwiftPoints earned</small>
+                        <strong>+50</strong>
+                    </div>
+                    <div class="payment-row">
+                        <small>Total balance</small>
+                        <strong>${state.balance.toLocaleString()}</strong>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="section-head">
+                    <div>
+                        <span class="eyebrow">SwiftFlow leaderboard</span>
+                        <h2>Lower-emission commuters</h2>
+                    </div>
+                    <span class="material-symbols-outlined accent">leaderboard</span>
+                </div>
+                <div class="payment-list">
+                    ${leaderboard.map((item) => `
+                        <div class="payment-row">
+                            <small>#${item.rank} ${item.name}</small>
+                            <strong>${item.points.toLocaleString()} pts / ${item.impact}</strong>
+                        </div>
+                    `).join("")}
+                </div>
+            </article>
         </section>
 
         <section class="grid-two">

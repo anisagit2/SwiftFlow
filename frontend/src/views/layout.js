@@ -9,14 +9,13 @@ export const renderLayout = (state, content) => `
                 <span>${topbarTitle(state)}</span>
             </button>
             <div class="topbar-actions">
-                <div class="credit-badge">
+                <button class="credit-badge" data-nav="credits" aria-label="Open credits">
                     <span class="material-symbols-outlined filled">eco</span>
                     <span>${state.balance.toLocaleString()}</span>
-                </div>
-                <button class="icon-button" aria-label="Open alerts" data-nav="alerts">
+                </button>
+                <button class="icon-button" aria-label="Open notifications" data-nav="notifications">
                     <span class="material-symbols-outlined">notifications</span>
                 </button>
-                <div class="avatar" title="Private guest profile on this device">${state.authInitials}</div>
             </div>
         </header>
 

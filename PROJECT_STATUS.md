@@ -15,12 +15,14 @@ This file is written as a machine-readable handoff/status summary for future age
 - User login UI: none.
 - Identity model: each browser/device silently receives a Firebase anonymous UID.
 - Profile model: one Firestore user profile per Firebase UID.
-- Profile editing: supported in app Profile page.
+- Profile editing: supported in app Profile page with focused name/email editing.
 - Payment model: mock/display-only.
 - Carpool model: mock taxi/driver data.
 - Carpool concurrency: not production-ready.
 - Main data store: Firestore.
 - Compatibility state endpoint: still exists as `/api/state`.
+- Notification model: frontend simulation that routes predictive alerts to app pages.
+- Passport/arrival card model: frontend simulation for SGAC/MDAC status and QR pass access.
 
 ## Major Work Completed
 
@@ -48,6 +50,14 @@ This file is written as a machine-readable handoff/status summary for future age
 22. Added frontend Docker build args for Vite env values.
 23. Added `frontend/cloudbuild.yaml`.
 24. Updated README with Cloud Run deployment commands.
+25. Added route-specific confirmation behavior for train, bus, and carpool flows.
+26. Added train/bus QR pass access after confirmed bookings.
+27. Added profile travel pass wallet with RTS, bus, and passport pre-check-in views.
+28. Added document readiness page for passport validity, SGAC/MDAC submission simulation, visa status, and passport QR bar access.
+29. Added notification center page linked from the top notification bell.
+30. Added predictive notification routes for congestion comparison, pre-check reminders, carbon reward, and Smart-Gate QR access.
+31. Added Rewards sustainability dashboard and SwiftFlow leaderboard.
+32. Removed profile reset demo button, review saved booking button, and taxi QR pass display.
 
 ## Current Backend Architecture
 
@@ -114,6 +124,8 @@ Pages:
 - `frontend/src/views/pages/carpoolBooking.js`
 - `frontend/src/views/pages/carpoolPickup.js`
 - `frontend/src/views/pages/passportCheckin.js`
+- `frontend/src/views/pages/documentReadiness.js`
+- `frontend/src/views/pages/notifications.js`
 - `frontend/src/views/pages/alerts.js`
 - `frontend/src/views/pages/credits.js`
 - `frontend/src/views/pages/rewards.js`
@@ -198,10 +210,10 @@ Status: implemented for MVP.
 - Supports fields:
   - `displayName`
   - `email`
-  - `preferredDestination`
-  - `primaryMode`
-  - `homeHub`
-  - `bio`
+- Profile page intentionally keeps editing to name/email for simpler UX.
+- Shows saved train, bus, and carpool booking details.
+- Shows RTS/bus QR pass when the matching booking is confirmed.
+- Shows passport pre-check-in pass only after SGAC or MDAC submission is confirmed.
 
 ### Train Booking
 
@@ -218,6 +230,8 @@ Status: partially production-shaped.
   - `updatedAt`
 - Confirmation writes trip history/profile read model.
 - Payment remains mock/display-only.
+- `Access QR Pass` appears only after RTS confirmation.
+- Train page includes bus price comparison link to the bus booking page.
 
 ### Bus Booking
 
@@ -227,6 +241,7 @@ Status: partially production-shaped.
 - Domain metadata added like train booking.
 - Confirmation writes trip history/profile read model.
 - Payment remains mock/display-only.
+- Bus page shows QR pass access after bus confirmation.
 
 ### Carpool
 
@@ -239,12 +254,17 @@ Status: mock/demo.
 
 ### Passport Check-In / Pass Readiness
 
-Status: MVP implemented.
+Status: MVP UI implemented with simulated document checks.
 
 - Persists check-in read model.
 - Updates pass readiness.
 - Writes credit transaction.
-- Still simplified, not connected to real passport/identity verification.
+- Passport pre-check-in now leads to document readiness.
+- Document readiness shows passport validity, SGAC/MDAC status, and visa status.
+- SGAC and MDAC submission states are tracked separately in frontend state.
+- Submitting one arrival card does not update the other card.
+- Confirmed SGAC or MDAC unlocks the passport QR bar in Profile.
+- Still simplified, not connected to real passport/identity verification or official arrival card systems.
 
 ### Alerts
 
@@ -252,6 +272,8 @@ Status: MVP implemented.
 
 - Persists alert read model.
 - Accepting alert updates trip timing and writes credit transaction.
+- Top notification bell opens a simulated notification center.
+- Time-to-leave notification opens Alerts with road congestion vs RTS train comparison visible.
 - Vertex/Gemini helper exists but disruption flow is still simplified.
 
 ### Credits
@@ -267,7 +289,21 @@ Status: MVP ledger implemented.
 Status: MVP implemented.
 
 - Reward redemption writes redemption record and negative credit ledger entry.
+- Rewards page includes a sustainability dashboard and SwiftFlow leaderboard.
 - Inventory/partner fulfillment is not production-ready.
+
+### Notifications
+
+Status: frontend simulation implemented.
+
+- Top notification bell routes to `notifications`.
+- Notification center includes:
+  - Time to Leave predictive mobility alert.
+  - Pre-check Reminder for missing SGAC.
+  - Carbon Reward impact alert.
+- Smart-Gate Token QR alert.
+- Notification actions route to Alerts, Document Readiness, Rewards, and the passport QR bar in Profile.
+- Triggers are simulated in frontend copy, not connected to live traffic, GPS/geofencing, or trip completion detection.
 
 ### Payments
 
@@ -379,6 +415,7 @@ At the time of this file:
 - Backend syntax checks passed for key modified files.
 - Frontend `npm run build` passed.
 - No active Google sign-in code references remain except documentation saying Google sign-in is not used.
+- Recent frontend render checks passed for SGAC/MDAC separation, Profile pre-check-in pass gating, train QR gating, notification routes, alert comparison, and rewards leaderboard.
 
 ## Known Remaining Work
 

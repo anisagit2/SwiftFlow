@@ -93,9 +93,15 @@ export const renderTrainBookingPage = (state) => `
                     <span>${state.booking.confirmed ? "RTS Booking Confirmed" : "Confirm RTS Booking"}</span>
                     <span class="material-symbols-outlined">${state.booking.confirmed ? "check_circle" : "task_alt"}</span>
                 </button>
-                <button class="secondary-action" data-action="open-pass" data-mode="rts">
-                    <span>Access QR Pass</span>
-                    <span class="material-symbols-outlined">qr_code_2</span>
+                ${state.booking.confirmed ? `
+                    <button class="secondary-action" data-action="open-pass" data-mode="rts">
+                        <span>Access QR Pass</span>
+                        <span class="material-symbols-outlined">qr_code_2</span>
+                    </button>
+                ` : ""}
+                <button class="secondary-action" data-nav="bus-booking">
+                    <span>Compare bus price</span>
+                    <span class="material-symbols-outlined">directions_bus</span>
                 </button>
             </div>
             <p class="support-copy">
@@ -106,9 +112,9 @@ export const renderTrainBookingPage = (state) => `
 
     <section class="panel panel--notice">
         <div>
-            <span class="eyebrow">Comparison</span>
-            <h3>RTS booked, bus kept as fallback</h3>
-            <p>${state.busBooking.route} still leaves at ${state.busBooking.departureTime} for ${state.busBooking.fare}, but your current RTS booking remains the fastest option.</p>
+            <span class="eyebrow">Fallback mode</span>
+            <h3>Bus remains available</h3>
+            <p>The bus option keeps the same destination context as Explore, so users can adjust destination and time without losing the rest of the trip plan.</p>
         </div>
         <div class="notice-actions">
             <button class="secondary-action" data-nav="explore">Return to explore</button>
