@@ -52,6 +52,27 @@ export const renderCreditsPage = (state) => `
         </article>
     </section>
 
+    <section class="grid-two">
+        <article class="panel panel--notice">
+            <div>
+                <span class="eyebrow">Lifecycle automation</span>
+                <h3>Credits stay tied to real trip timing</h3>
+                <p>Cloud Scheduler and Cloud Tasks now support timed ticket expiry and departure reminders, so future credit events can be attached to confirmed trips instead of static demos.</p>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Translated alerts</span>
+                    <h2>Multilingual commuter support</h2>
+                </div>
+                <span class="material-symbols-outlined accent">translate</span>
+            </div>
+            <p>Alerts and AI suggestions can be localized through Cloud Translation using the traveler’s browser language.</p>
+        </article>
+    </section>
+
     <section class="panel">
         <div class="section-head">
             <div>

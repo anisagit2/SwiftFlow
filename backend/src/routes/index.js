@@ -1,6 +1,10 @@
 import { getUrl, parseJsonBody } from "../http/request.js";
 import { sendJson } from "../http/response.js";
 import { generateExploreSuggestions } from "../ai/geminiService.js";
+import { isInternalRequestAuthorized } from "../services/internalAuth.js";
+import { getPreferredLanguage } from "../services/language.js";
+import { enqueueBookingLifecycleTasks } from "../services/taskScheduler.js";
+import { translateAlertDetails, translateExploreSuggestions, translateSnapshot } from "../services/translationService.js";
 
 const methodNotAllowed = (response, request) => {
     sendJson(response, 405, { error: "Method not allowed" }, request);
@@ -47,6 +51,9 @@ const overview = {
         "POST /api/rewards/:rewardId/redeem",
         "GET /api/profile",
         "PATCH /api/profile",
+        "POST /api/cron/expire-tickets",
+        "POST /api/tasks/expire-ticket",
+        "POST /api/tasks/send-trip-reminder",
     ],
 };
 
@@ -54,6 +61,7 @@ export const routeRequest = async (request, response, store, requestContext) => 
     const url = getUrl(request);
     const { pathname } = url;
     const user = requestContext.user;
+    const preferredLanguage = getPreferredLanguage(request);
 
     if (pathname === "/health") {
         if (request.method !== "GET") {
@@ -86,7 +94,7 @@ export const routeRequest = async (request, response, store, requestContext) => 
             return true;
         }
 
-        sendJson(response, 200, await store.getState(user), request);
+        sendJson(response, 200, await translateSnapshot(await store.getState(user), preferredLanguage), request);
         return true;
     }
 
@@ -133,7 +141,8 @@ export const routeRequest = async (request, response, store, requestContext) => 
 
         const exploreData = (await store.getSnapshot(user)).explore;
         const aiSuggestions = await generateExploreSuggestions(exploreData.booking.destination);
-        exploreData.aiSuggestions = aiSuggestions;
+        exploreData.aiSuggestions = await translateExploreSuggestions(aiSuggestions, preferredLanguage);
+        exploreData.language = preferredLanguage;
         
         sendJson(response, 200, exploreData, request);
         return true;
@@ -190,7 +199,13 @@ export const routeRequest = async (request, response, store, requestContext) => 
             return true;
         }
 
-        sendJson(response, 200, await store.confirmTrainBooking(user), request);
+        const result = await store.confirmTrainBooking(user);
+        const scheduledTasks = await enqueueBookingLifecycleTasks({
+            userId: user.userId,
+            bookingType: "train",
+            booking: result.booking,
+        });
+        sendJson(response, 200, { ...result, scheduledTasks }, request);
         return true;
     }
 
@@ -230,7 +245,68 @@ export const routeRequest = async (request, response, store, requestContext) => 
             return true;
         }
 
-        sendJson(response, 200, await store.confirmBusBooking(user), request);
+        const result = await store.confirmBusBooking(user);
+        const scheduledTasks = await enqueueBookingLifecycleTasks({
+            userId: user.userId,
+            bookingType: "bus",
+            booking: result.booking,
+        });
+        sendJson(response, 200, { ...result, scheduledTasks }, request);
+        return true;
+    }
+
+    if (pathname === "/api/cron/expire-tickets") {
+        if (!isInternalRequestAuthorized(request)) {
+            unauthorized(response, request);
+            return true;
+        }
+
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.expirePastTickets(), request);
+        return true;
+    }
+
+    if (pathname === "/api/tasks/expire-ticket") {
+        if (!isInternalRequestAuthorized(request)) {
+            unauthorized(response, request);
+            return true;
+        }
+
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        try {
+            const body = await parseJsonBody(request);
+            sendJson(response, 200, await store.expireTicket({ userId: body.userId }, body.bookingType, body), request);
+        } catch (error) {
+            badRequest(response, error, request);
+        }
+        return true;
+    }
+
+    if (pathname === "/api/tasks/send-trip-reminder") {
+        if (!isInternalRequestAuthorized(request)) {
+            unauthorized(response, request);
+            return true;
+        }
+
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        try {
+            const body = await parseJsonBody(request);
+            sendJson(response, 200, await store.recordTripReminder({ userId: body.userId }, body), request);
+        } catch (error) {
+            badRequest(response, error, request);
+        }
         return true;
     }
 
@@ -330,7 +406,11 @@ export const routeRequest = async (request, response, store, requestContext) => 
             return true;
         }
 
-        sendJson(response, 200, await store.acceptAlert(user), request);
+        const result = await store.acceptAlert(user);
+        sendJson(response, 200, {
+            ...result,
+            alertDetails: await translateAlertDetails(result.alertDetails, preferredLanguage),
+        }, request);
         return true;
     }
 

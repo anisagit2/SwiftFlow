@@ -21,11 +21,44 @@ const normalizeDocumentSubmissionStatuses = (statuses = {}) => ({
 const hasConfirmedDocumentSubmission = (appState) => Object.values(appState.documentSubmissionStatuses ?? {})
     .includes("confirmed");
 
+const compressProfilePhoto = (file) => new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    image.addEventListener("load", () => {
+        const maxSize = 512;
+        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const context = canvas.getContext("2d");
+
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) {
+                reject(new Error("Unable to process profile picture."));
+                return;
+            }
+
+            resolve(new File([blob], "profile-picture.webp", { type: "image/webp" }));
+        }, "image/webp", 0.82);
+    }, { once: true });
+
+    image.addEventListener("error", () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("Unable to read profile picture."));
+    }, { once: true });
+
+    image.src = objectUrl;
+});
+
 export const createApp = (root) => {
     let pendingScrollTargetId = "";
     const state = Object.assign(createInitialState(), {
         isBootstrapping: true,
         isAuthenticated: false,
+        authUserId: null,
         isBackendConnected: false,
         authDisplayName: "Guest",
         authInitials: "SF",
@@ -56,6 +89,7 @@ export const createApp = (root) => {
             showAlertRoutes: state.showAlertRoutes,
             profileQrMode: state.profileQrMode,
             isAuthenticated: state.isAuthenticated,
+            authUserId: state.authUserId,
             isBackendConnected: state.isBackendConnected,
             authDisplayName: state.authDisplayName,
             authInitials: state.authInitials,
@@ -225,6 +259,7 @@ export const createApp = (root) => {
     const applyAuthSession = (session) => {
         if (!session?.enabled || !session.userId) {
             state.isAuthenticated = false;
+            state.authUserId = null;
             state.authDisplayName = "Guest";
             state.authInitials = "SF";
             return;
@@ -537,10 +572,11 @@ export const createApp = (root) => {
                 : () => {
                     Object.assign(state, createInitialState(), {
                         isBootstrapping: false,
-                        isAuthenticated: false,
+                        isAuthenticated: state.isAuthenticated,
+                        authUserId: state.authUserId,
                         isBackendConnected: false,
-                        authDisplayName: "Guest",
-                        authInitials: "SF",
+                        authDisplayName: state.authDisplayName,
+                        authInitials: state.authInitials,
                         pendingAction: "",
                         errorMessage: "",
                         noticeMessage: "",
@@ -760,33 +796,56 @@ export const createApp = (root) => {
                 return;
             }
 
-            if (file.size > 3 * 1024 * 1024) {
-                state.errorMessage = "Choose a profile picture smaller than 3 MB.";
+            if (file.size > 8 * 1024 * 1024) {
+                state.errorMessage = "Choose a profile picture smaller than 8 MB.";
                 render();
                 event.target.value = "";
                 return;
             }
 
-            if (!state.isAuthenticated || !state.isBackendConnected || !state.authUserId) {
-                state.errorMessage = "You must be online and authenticated to upload a profile picture.";
+            if (!state.authUserId) {
+                state.errorMessage = "Firebase sign-in is still starting. Try uploading again in a moment.";
                 render();
                 return;
             }
 
-            // Optional: check file size or type if needed. We already have 'accept' attribute.
+            const previousPhotoURL = state.profileDetails?.photoURL ?? null;
+            const previewUrl = URL.createObjectURL(file);
+            state.profileDetails = {
+                ...state.profileDetails,
+                photoURL: previewUrl,
+            };
+            state.noticeMessage = "Preview ready. Optimizing photo before upload...";
+            state.errorMessage = "";
+            render();
 
             await runRequest("upload-avatar", async () => {
-                const downloadURL = await uploadProfilePicture(state.authUserId, file);
-                await apiClient.updateProfile({ photoURL: downloadURL });
+                const optimizedFile = await compressProfilePhoto(file);
+                const downloadURL = await uploadProfilePicture(state.authUserId, optimizedFile);
                 if (state.profileDetails) {
                     state.profileDetails.photoURL = downloadURL;
                 }
+                if (state.isBackendConnected) {
+                    await apiClient.updateProfile({ photoURL: downloadURL });
+                }
             }, {
-                successMessage: "Profile picture updated.",
+                successMessage: state.isBackendConnected
+                    ? "Profile picture updated."
+                    : "Profile picture uploaded. Backend sync will update when the API is connected.",
                 nextTab: "profile",
                 preserveTab: true,
-                syncAfter: true,
+                syncAfter: state.isBackendConnected,
             });
+
+            if (state.errorMessage && previousPhotoURL !== previewUrl) {
+                state.profileDetails = {
+                    ...state.profileDetails,
+                    photoURL: previousPhotoURL,
+                };
+                render();
+            }
+
+            URL.revokeObjectURL(previewUrl);
 
             // Reset the input so it can trigger change event again if the same file is selected
             event.target.value = "";

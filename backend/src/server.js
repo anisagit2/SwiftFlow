@@ -16,7 +16,8 @@ const server = http.createServer(async (request, response) => {
     }
 
     try {
-        const user = await resolveRequestUser(request);
+        const isInternalJobPath = request.url?.startsWith("/api/cron/") || request.url?.startsWith("/api/tasks/");
+        const user = isInternalJobPath ? null : await resolveRequestUser(request);
         const handled = await routeRequest(request, response, store, { user });
 
         if (!handled) {

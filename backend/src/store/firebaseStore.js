@@ -130,6 +130,45 @@ const decrementSeatsLabel = (seatsLabel) => {
     return `${nextSeats} seat${nextSeats === 1 ? "" : "s"} left`;
 };
 
+const timeToMinutes = (time) => {
+    const match = /^(\d{2}):(\d{2})$/.exec(time ?? "");
+    if (!match) {
+        return null;
+    }
+
+    return Number(match[1]) * 60 + Number(match[2]);
+};
+
+const isPastDepartureGrace = (departureTime, graceMinutes = 5) => {
+    const departureMinutes = timeToMinutes(departureTime);
+    if (departureMinutes === null) {
+        return false;
+    }
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    return nowMinutes >= departureMinutes + graceMinutes;
+};
+
+const buildExpiredBooking = (booking) => ({
+    ...booking,
+    status: booking.type === "bus" ? "Bus Expired" : "RTS Expired",
+    reservationStatus: "expired",
+    passStatus: "expired",
+    expiredAt: currentTimestamp(),
+    updatedAt: currentTimestamp(),
+});
+
+const buildReminderAlert = ({ bookingType, booking }) => ({
+    status: "trip_reminder",
+    incidentType: "departure_reminder",
+    title: bookingType === "bus" ? "Bus departure reminder" : "RTS departure reminder",
+    message: `${bookingType === "bus" ? "Your bus" : "Your RTS train"} leaves at ${booking.departureTime}. Open your trip details and prepare your QR pass.`,
+    suggestedDepartureTime: booking.departureTime,
+    acceptedAt: null,
+    updatedAt: currentTimestamp(),
+});
+
 const normalizeState = (state) => {
     const seedState = createSeedState();
 
@@ -656,6 +695,132 @@ export const createAppStore = () => {
     };
 
     return {
+        async expirePastTickets({ graceMinutes = 5 } = {}) {
+            const snapshot = await db.collectionGroup("bookings")
+                .where("confirmed", "==", true)
+                .where("reservationStatus", "==", "confirmed")
+                .get();
+            const batch = db.batch();
+            const expired = [];
+
+            snapshot.docs.forEach((doc) => {
+                const booking = doc.data();
+                if (!isPastDepartureGrace(booking.departureTime, graceMinutes)) {
+                    return;
+                }
+
+                const expiredBooking = buildExpiredBooking(booking);
+                const userRef = doc.ref.parent.parent;
+                batch.set(doc.ref, expiredBooking, { merge: true });
+                if (userRef) {
+                    batch.set(userRef.collection("readModels").doc("alerts"), {
+                        status: "ticket_expired",
+                        incidentType: "ticket_lifecycle",
+                        title: `${booking.type === "bus" ? "Bus" : "RTS"} ticket expired`,
+                        message: `The ${booking.type === "bus" ? "bus" : "RTS"} ticket for ${booking.departureTime} is now expired.`,
+                        updatedAt: expiredBooking.expiredAt,
+                    }, { merge: true });
+                }
+                expired.push({
+                    userId: userRef?.id ?? null,
+                    bookingType: booking.type ?? doc.id,
+                    bookingId: booking.id ?? doc.id,
+                    departureTime: booking.departureTime,
+                });
+            });
+
+            if (expired.length) {
+                await batch.commit();
+            }
+
+            return {
+                expiredCount: expired.length,
+                expired,
+            };
+        },
+
+        async expireTicket(user, bookingType, input = {}) {
+            if (!user?.userId) {
+                throw new Error("userId is required.");
+            }
+
+            if (!["train", "bus"].includes(bookingType)) {
+                throw new Error("bookingType must be train or bus.");
+            }
+
+            const refs = getRefs(user.userId);
+            const bookingRef = bookingType === "bus" ? refs.busBookingRef : refs.trainBookingRef;
+            const bookingSnap = await bookingRef.get();
+
+            if (!bookingSnap.exists) {
+                return { expired: false, reason: "Booking was not found." };
+            }
+
+            const booking = bookingType === "bus"
+                ? decorateBusBooking(bookingSnap.data())
+                : decorateTrainBooking(bookingSnap.data());
+
+            if (input.confirmationCode && booking.confirmationCode && input.confirmationCode !== booking.confirmationCode) {
+                return { expired: false, reason: "Confirmation code no longer matches this booking." };
+            }
+
+            if (!booking.confirmed || booking.reservationStatus === "expired") {
+                return { expired: false, reason: "Booking is not an active confirmed ticket." };
+            }
+
+            const expiredBooking = buildExpiredBooking(booking);
+            await bookingRef.set(expiredBooking, { merge: true });
+            await refs.alertsRef.set({
+                status: "ticket_expired",
+                incidentType: "ticket_lifecycle",
+                title: `${bookingType === "bus" ? "Bus" : "RTS"} ticket expired`,
+                message: `The ${bookingType === "bus" ? "bus" : "RTS"} ticket for ${booking.departureTime} is now expired.`,
+                updatedAt: expiredBooking.expiredAt,
+            }, { merge: true });
+
+            return {
+                expired: true,
+                bookingType,
+                booking: expiredBooking,
+            };
+        },
+
+        async recordTripReminder(user, input = {}) {
+            if (!user?.userId) {
+                throw new Error("userId is required.");
+            }
+
+            const bookingType = input.bookingType === "bus" ? "bus" : "train";
+            const refs = getRefs(user.userId);
+            const bookingRef = bookingType === "bus" ? refs.busBookingRef : refs.trainBookingRef;
+            const bookingSnap = await bookingRef.get();
+
+            if (!bookingSnap.exists) {
+                return { recorded: false, reason: "Booking was not found." };
+            }
+
+            const booking = bookingType === "bus"
+                ? decorateBusBooking(bookingSnap.data())
+                : decorateTrainBooking(bookingSnap.data());
+
+            if (input.confirmationCode && booking.confirmationCode && input.confirmationCode !== booking.confirmationCode) {
+                return { recorded: false, reason: "Confirmation code no longer matches this booking." };
+            }
+
+            if (!booking.confirmed || booking.reservationStatus === "expired") {
+                return { recorded: false, reason: "Booking is not active." };
+            }
+
+            const alert = buildReminderAlert({ bookingType, booking });
+            await refs.alertsRef.set(alert, { merge: true });
+
+            return {
+                recorded: true,
+                bookingType,
+                alert,
+            };
+        },
+
         async getState(user) {
             return clone(await loadState(user));
         },
@@ -961,6 +1126,7 @@ export const createAppStore = () => {
                     routeGate: state.routeGate,
                     routeWindow: state.routeWindow,
                     balance: state.balance,
+                    alertDetails: state.alertDetails,
                 });
             });
         },

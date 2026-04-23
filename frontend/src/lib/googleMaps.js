@@ -3,6 +3,37 @@ const GOOGLE_MAPS_SCRIPT_ID = "swiftflow-google-maps-js";
 
 let googleMapsPromise;
 
+const renderMapFallback = (element, message) => {
+    element.dataset.googleMapReady = "fallback";
+    element.classList.add("google-map--fallback");
+    element.innerHTML = `
+        <div class="map-fallback-card">
+            <div class="map-fallback-badge">
+                <span class="material-symbols-outlined">map</span>
+                <span>Pickup map</span>
+            </div>
+            <h3>Interactive map unavailable</h3>
+            <p>${message}</p>
+            <div class="map-fallback-points">
+                <div class="map-fallback-point">
+                    <span class="material-symbols-outlined filled">place</span>
+                    <div>
+                        <strong>Use the pickup route card below</strong>
+                        <span>It still shows the meeting point, walk ETA, and departure time.</span>
+                    </div>
+                </div>
+                <div class="map-fallback-point">
+                    <span class="material-symbols-outlined filled">directions_walk</span>
+                    <div>
+                        <strong>Map will appear automatically once Google Maps is configured</strong>
+                        <span>No extra tap is needed after the API key and billing are working.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+};
+
 const setMapStatus = (element, message) => {
     const status = element.querySelector("[data-map-status]");
     if (status) {
@@ -24,6 +55,10 @@ const loadGoogleMaps = () => {
     }
 
     googleMapsPromise = new Promise((resolve, reject) => {
+        window.gm_authFailure = () => {
+            reject(new Error("Google Maps authorization failed. Check the API key, allowed referrers, and billing."));
+        };
+
         const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID);
         if (existingScript) {
             existingScript.addEventListener("load", () => resolve(window.google));
@@ -97,7 +132,7 @@ const initializeCarpoolMap = (google, root, state, onRouteEstimated) => {
         travelMode: google.maps.TravelMode.WALKING,
     }, (result, status) => {
         if (status !== "OK" || !result) {
-            setMapStatus(mapElement, "Google map loaded. Route estimate is unavailable for this pickup point.");
+            renderMapFallback(mapElement, "Google Maps loaded, but the walking route estimate is unavailable for this pickup point right now.");
             return;
         }
 
@@ -111,6 +146,15 @@ const initializeCarpoolMap = (google, root, state, onRouteEstimated) => {
         }
     });
 
+    window.setTimeout(() => {
+        if (mapElement.querySelector(".gm-err-container")) {
+            renderMapFallback(
+                mapElement,
+                "Google Maps could not render correctly for this project. Check your Maps JavaScript API key, billing, and website restrictions.",
+            );
+        }
+    }, 1200);
+
     mapElement.dataset.googleMapReady = "true";
 };
 
@@ -118,7 +162,7 @@ export const initializeGoogleMapsFeatures = (root, state, callbacks) => {
     const mapElements = root.querySelectorAll("[data-google-map]");
     if (!GOOGLE_MAPS_API_KEY) {
         mapElements.forEach((element) => {
-            setMapStatus(element, "Add VITE_GOOGLE_MAPS_API_KEY to enable the interactive Google map.");
+            renderMapFallback(element, "Add VITE_GOOGLE_MAPS_API_KEY to enable the interactive Google map.");
         });
         return;
     }
@@ -134,7 +178,7 @@ export const initializeGoogleMapsFeatures = (root, state, callbacks) => {
         })
         .catch(() => {
             mapElements.forEach((element) => {
-                setMapStatus(element, "Google Maps could not load. Showing the fallback pickup card.");
+                renderMapFallback(element, "Google Maps could not load. Showing the fallback pickup card instead.");
             });
         });
 };

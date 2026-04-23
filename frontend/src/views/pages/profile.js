@@ -188,7 +188,7 @@ export const renderProfilePage = (state) => {
                             </span>
                         </button>
                         <input class="visually-hidden" type="file" id="profile-photo-upload" accept="image/png, image/jpeg, image/webp" />
-                        ${state.pendingAction === "upload-avatar" ? `<span class="profile-avatar-status">Uploading...</span>` : ""}
+                        <span class="profile-avatar-status">${state.pendingAction === "upload-avatar" ? "Optimizing..." : "Tap to edit"}</span>
                     </div>
                     <div>
                         <span class="eyebrow">Commuter profile</span>

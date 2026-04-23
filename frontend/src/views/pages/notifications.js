@@ -103,4 +103,45 @@ export const renderNotificationsPage = (state) => `
             </article>
         </div>
     </section>
+
+    <section class="grid-two">
+        <article class="panel panel--accent-soft">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Automation engine</span>
+                    <h2>Timed reminders and expiry</h2>
+                </div>
+                <span class="material-symbols-outlined accent">schedule_send</span>
+            </div>
+            <p>Confirmed RTS and bus trips can now queue exact reminders 15 minutes before departure and expire passes 5 minutes after departure.</p>
+            <div class="profile-meta-grid">
+                <div class="payment-row">
+                    <small>Cloud Scheduler</small>
+                    <strong>Every 5 min</strong>
+                </div>
+                <div class="payment-row">
+                    <small>Cloud Tasks</small>
+                    <strong>Per trip</strong>
+                </div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Language support</span>
+                    <h2>Alerts follow your browser language</h2>
+                </div>
+                <span class="material-symbols-outlined accent">translate</span>
+            </div>
+            <p>Backend alerts and AI-generated exploration suggestions are prepared for automatic Cloud Translation when the traveler uses another language.</p>
+            <div class="mini-stat">
+                <span class="material-symbols-outlined filled">language</span>
+                <div>
+                    <strong>Browser language detected</strong>
+                    <p>SwiftFlow sends your language preference with API requests.</p>
+                </div>
+            </div>
+        </article>
+    </section>
 `;

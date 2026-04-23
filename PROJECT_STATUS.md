@@ -1,6 +1,6 @@
 # SwiftFlow Project Status
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## Purpose
 
@@ -25,6 +25,9 @@ This file is written as a machine-readable handoff/status summary for future age
 - Notification model: frontend simulation that routes predictive alerts to app pages.
 - Passport/arrival card model: frontend simulation for SGAC/MDAC status and QR pass access.
 - Google mobility model: optional frontend Google Maps Platform integration enabled by `VITE_GOOGLE_MAPS_API_KEY`.
+- Background jobs model: Cloud Scheduler and Cloud Tasks support for ticket expiry and trip reminders.
+- Translation model: Cloud Translation API support for alert/read-model text and Gemini exploration suggestions.
+- Deployment helper: root `deploy.sh` is the current preferred Cloud Run deploy path.
 
 ## Major Work Completed
 
@@ -63,6 +66,12 @@ This file is written as a machine-readable handoff/status summary for future age
 33. Added optional Google Places autocomplete for origin/destination location fields.
 34. Added optional Google Maps pickup map and walking route ETA for carpool pickup.
 35. Added polished Profile photo edit control for Firebase Storage uploads.
+36. Added internal cron/task backend endpoints for ticket lifecycle automation.
+37. Added optional Cloud Tasks scheduling after train/bus confirmation.
+38. Added optional Cloud Translation API response localization based on browser language.
+39. Added frontend request retry/clearer startup messaging for transient backend cold-start/network failures.
+40. Added Google Maps fallback card instead of raw Google error UI.
+41. Hardened Firebase Storage profile photo upload with bucket fallback and clearer auth/storage errors.
 
 ## Current Backend Architecture
 
@@ -95,6 +104,13 @@ AI:
 
 - `backend/src/ai/geminiService.js`
 - `backend/src/ai/prompts.js`
+
+Background jobs:
+
+- `backend/src/services/internalAuth.js`
+- `backend/src/services/taskScheduler.js`
+- `backend/src/services/language.js`
+- `backend/src/services/translationService.js`
 
 Legacy unused/demo store still exists:
 
@@ -172,6 +188,9 @@ Requires Firebase token unless `ALLOW_UNAUTHENTICATED_DEV=true`:
 - `POST /api/rewards/:rewardId/redeem`
 - `GET /api/profile`
 - `PATCH /api/profile`
+- `POST /api/cron/expire-tickets`
+- `POST /api/tasks/expire-ticket`
+- `POST /api/tasks/send-trip-reminder`
 
 ## Firestore Shape
 
@@ -327,6 +346,13 @@ Backend:
 - `FIREBASE_PROJECT_ID`
 - `VERTEX_AI_LOCATION`
 - `GEMINI_MODEL`
+- `TRANSLATION_ENABLED`
+- `TRANSLATION_FALLBACK_LANGUAGE`
+- `BACKEND_BASE_URL`
+- `INTERNAL_TASK_SECRET`
+- `CLOUD_TASKS_LOCATION`
+- `CLOUD_TASKS_QUEUE`
+- `TASK_INVOKER_SERVICE_ACCOUNT`
 - `ALLOWED_ORIGINS`
 - `ALLOW_UNAUTHENTICATED_DEV`
 - `DEV_USER_ID`
@@ -346,7 +372,15 @@ Google Maps behavior:
 - When `VITE_GOOGLE_MAPS_API_KEY` is unset, the app falls back to local datalist suggestions and static pickup-map UI.
 - When configured, Places autocomplete attaches to origin/destination fields.
 - When configured, the carpool pickup page loads an interactive Google map and walking route estimate.
+- When Google Maps fails to authorize/render, the carpool pickup page now shows a designed fallback card instead of the default Google error box.
 - Required Google Cloud APIs: Maps JavaScript API and Places API. Route estimates use the Maps JavaScript routing service.
+
+Firebase frontend behavior:
+
+- Frontend bootstraps a silent Firebase Anonymous Auth session before first protected API call.
+- If the frontend reaches backend without a Firebase ID token, backend returns `401 Unauthorized`.
+- Deployed frontend requires Firebase Anonymous Auth enabled plus the frontend domain added to Firebase Authorized Domains.
+- Profile photo upload now tries configured Storage bucket, `${projectId}.appspot.com`, and `${projectId}.firebasestorage.app`.
 
 ## Local Run
 
@@ -376,6 +410,23 @@ http://localhost:5173
 ```
 
 ## Cloud Run Deploy Outline
+
+Preferred path:
+
+```bash
+./deploy.sh
+```
+
+The script:
+
+- deploys backend first,
+- reads the real backend Cloud Run URL,
+- builds/deploys frontend against that URL,
+- reads the real frontend Cloud Run URL,
+- patches backend `ALLOWED_ORIGINS`,
+- provisions Cloud Scheduler/Cloud Tasks pieces when configured.
+
+Manual outline:
 
 Backend first:
 
@@ -415,14 +466,29 @@ After frontend deploy, update backend `ALLOWED_ORIGINS` to the exact frontend Cl
 - Enable Firebase Authentication.
 - Enable Anonymous auth provider.
 - Add frontend Cloud Run URL to Firebase Authorized Domains.
+- Add `localhost` and `127.0.0.1` too if local frontend will call cloud backend during development.
 - Enable Firestore Native mode.
 - Enable Vertex AI API.
+- Enable Cloud Translation API for localized alerts and AI suggestions.
+- Enable Cloud Scheduler API and Cloud Tasks API for automated ticket lifecycle jobs.
 - Enable Maps JavaScript API and Places API if location autocomplete/maps are needed.
 - Restrict the Google Maps browser API key to allowed frontend HTTP referrers.
 - Ensure backend Cloud Run service account has:
   - Cloud Datastore User
   - Vertex AI User
   - Firebase Authentication Admin
+  - Cloud Tasks Enqueuer
+
+## Background Jobs
+
+Status: MVP implemented.
+
+- `POST /api/cron/expire-tickets` expires confirmed train/bus tickets after departure plus grace time.
+- `POST /api/tasks/expire-ticket` expires one exact user booking from Cloud Tasks.
+- `POST /api/tasks/send-trip-reminder` writes a Firestore alert/reminder for one exact user booking.
+- Confirming train or bus booking attempts to enqueue reminder and expiry tasks.
+- If Cloud Tasks env vars are missing, scheduling is skipped without breaking booking confirmation.
+- Internal endpoints require `X-SwiftFlow-Task-Secret` unless `ALLOW_UNAUTHENTICATED_DEV=true`.
 
 ## Validation Already Run
 
@@ -432,6 +498,8 @@ At the time of this file:
 - Frontend `npm run build` passed.
 - No active Google sign-in code references remain except documentation saying Google sign-in is not used.
 - Recent frontend render checks passed for SGAC/MDAC separation, Profile pre-check-in pass gating, train QR gating, notification routes, alert comparison, and rewards leaderboard.
+- `deploy.sh` shell syntax check passed.
+- Frontend request retry behavior is in place for transient `fetch` failures on first load.
 
 ## Known Remaining Work
 
@@ -441,9 +509,10 @@ High priority:
 - Add rate limiting/abuse controls.
 - Add structured logging and monitoring.
 - Add readiness endpoint that checks Firestore/Vertex access.
-- Add frontend 401/session error handling.
+- Improve frontend handling of backend `401 Unauthorized` by surfacing a Firebase session/auth setup message instead of a generic request error.
 - Remove or retire legacy `backend/src/store/appStore.js`.
 - Reduce reliance on compatibility `/api/state`.
+- Consider setting backend Cloud Run `min-instances=1` if first-load cold starts remain noticeable in production.
 
 Medium priority:
 
@@ -462,3 +531,4 @@ MVP limitations:
 - No real payment provider integrations.
 - No real passport/identity verification.
 - Google route/map data only works when a valid browser API key is configured.
+- Deployed frontend depends on Firebase Anonymous Auth and correct Firebase Authorized Domains; otherwise initial protected API calls fail with backend `401 Unauthorized`.
