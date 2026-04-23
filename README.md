@@ -1,91 +1,125 @@
 # SwiftFlow
 
-Project structure:
+SwiftFlow is a Johor-Singapore commuter web app focused on train, bus, carpool, border readiness, notifications, credits, and rewards.
 
-- `frontend/`: Vite frontend app
-- `backend/`: Node backend with Firebase Auth, Firestore persistence, and Vertex AI helpers
+The project has:
 
-Frontend:
+- a `frontend/` Vite app
+- a `backend/` Node.js API
+- Firebase Anonymous Auth for silent guest sessions
+- Firestore for per-user persisted state
+- Firebase Storage for profile photos
+- optional Google Maps Platform features
+- optional Cloud Scheduler / Cloud Tasks automation
+- optional Cloud Translation support
 
-- `cd frontend`
-- `npm run dev`
+## Stack
 
-Backend:
+- Frontend: Vite, vanilla JS, CSS
+- Backend: Node.js HTTP server
+- Auth: Firebase Anonymous Auth
+- Database: Firestore
+- File storage: Firebase Storage
+- AI helper: Vertex AI / Gemini
+- Deployment target: Google Cloud Run
 
-- `cd backend`
-- `npm run dev`
+## Repository Structure
 
-Backend env:
-
-- Copy `backend/.env.example` into your local env setup
-- `ALLOW_UNAUTHENTICATED_DEV=false` is the production-safe default
-- For local development only, temporarily set `ALLOW_UNAUTHENTICATED_DEV=true` if you need to bypass Firebase sign-in
-- Set `ALLOWED_ORIGINS` to the exact frontend origins allowed to call the backend, comma-separated
-- Set `INTERNAL_TASK_SECRET` before enabling Cloud Scheduler or Cloud Tasks. Scheduler/tasks must send it as `X-SwiftFlow-Task-Secret`.
-- Set `BACKEND_BASE_URL`, `CLOUD_TASKS_LOCATION`, `CLOUD_TASKS_QUEUE`, and optionally `TASK_INVOKER_SERVICE_ACCOUNT` to enable precise Cloud Tasks reminders/expiry jobs.
-- Set `TRANSLATION_ENABLED=true` to translate alert/suggestion responses based on the browser `Accept-Language` header.
-
-Frontend env:
-
-- Copy `frontend/.env.example` into `frontend/.env`
-- Add your Firebase web app config so the frontend can create a silent anonymous Firebase session, attach a Firebase ID token to API requests, and upload profile photos to Firebase Storage
-- Optional: set `VITE_GOOGLE_MAPS_API_KEY` to enable Google Places autocomplete, interactive pickup maps, and route-based walking ETA estimates. Restrict the key to your frontend domains in Google Cloud.
-
-Backend API coverage:
-
-- `GET /api/state`: full frontend-shaped snapshot
-- `POST /api/state/reset`: reset the persisted demo state back to seed data
-- `GET /api/options`: selector options for locations, times, and payment methods
-- `GET/PATCH /api/bookings/train`: RTS booking details and updates
-- `GET/PATCH /api/bookings/bus`: fallback bus details and updates
-- `GET /api/bookings/carpool`: carpool drivers and selected ride
-- `PATCH /api/bookings/carpool/select-driver`: switch selected driver
-- `PATCH /api/bookings/carpool/payment`: update selected driver payment
-- `POST /api/check-in`: accept pre-check-in flow
-- `POST /api/alerts/accept`: accept the alert-driven slot shift
-- `GET /api/credits`: credits summary and activity
-- `GET /api/rewards`: rewards marketplace data
-- `POST /api/rewards/:rewardId/redeem`: redeem a reward
-- `GET /api/profile`: pass/profile summary
-- `PATCH /api/profile`: create or edit the signed-in user's profile
-- `POST /api/cron/expire-tickets`: internal Cloud Scheduler endpoint that expires confirmed tickets after departure
-- `POST /api/tasks/expire-ticket`: internal Cloud Tasks endpoint for one exact ticket expiry
-- `POST /api/tasks/send-trip-reminder`: internal Cloud Tasks endpoint for one exact trip reminder
-- Alert details and Gemini exploration suggestions can be translated server-side with Cloud Translation API.
-
-Persistence:
-
-- Backend state is structured per user in Firestore under `users/{userId}/...`
-- In local development, the backend can fall back to `DEV_USER_ID` only when `ALLOW_UNAUTHENTICATED_DEV=true`
-- Use the Profile page `Reset Demo Data` action to reseed the active user's state for repeated testing
-
-Production deploy:
-
-Fast path using the repo script:
-
-```bash
-export PROJECT_ID=personal-claw-1
-export REGION=us-central1
-export BACKEND_URL=https://swiftflow-backend-840535137820.us-central1.run.app
-export FRONTEND_URL=https://swiftflow-frontend-840535137820.us-central1.run.app
-export INTERNAL_TASK_SECRET="$(openssl rand -hex 32)"
-export GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
-
-./deploy.sh
+```text
+swiftFlow/
+├── frontend/
+├── backend/
+├── deploy.sh
+├── PROJECT_STATUS.md
+└── README.md
 ```
 
-The script will:
+## Current Product Behavior
 
-- Enable required APIs.
-- Create the `swiftflow-trip-tasks` Cloud Tasks queue if missing.
-- Create Scheduler/Tasks service accounts if missing and grant Cloud Run invoke access.
-- Deploy the backend with Scheduler/Tasks env vars.
-- Create or update the `swiftflow-expire-tickets` Cloud Scheduler job.
-- Build and deploy the frontend with Firebase, Storage, and Google Maps variables.
+- Users do not see a login page.
+- The frontend creates a silent Firebase anonymous session.
+- Each browser/device gets its own Firebase UID.
+- Backend APIs require a Firebase ID token unless local dev fallback is enabled.
+- Profile photos upload to Firebase Storage.
+- Train and bus confirmations can schedule reminder/expiry jobs.
+- Google Maps, Places autocomplete, and route ETA are optional.
 
-Manual command sequence:
+## Prerequisites
 
-1. Enable APIs:
+Install these first:
+
+- Node.js 20+ or 22+
+- npm
+- Google Cloud SDK (`gcloud`)
+- a Google Cloud project
+- a Firebase project linked to the same Google Cloud project
+
+Check versions:
+
+```bash
+node -v
+npm -v
+gcloud --version
+```
+
+## 1. Clone And Install
+
+From the repo root:
+
+```bash
+cd /Users/howy/Desktop/swiftFlow
+
+npm --prefix frontend install
+npm --prefix backend install
+```
+
+## 2. Firebase Setup
+
+In Firebase Console for project `personal-claw-1`:
+
+### Authentication
+
+1. Open `Authentication`
+2. Open `Sign-in method`
+3. Enable `Anonymous`
+
+This is required because SwiftFlow uses silent anonymous auth.
+
+### Authorized domains
+
+Add these domains in Firebase Authentication settings:
+
+- `localhost`
+- `127.0.0.1`
+- your frontend Cloud Run domain, for example:
+  - `swiftflow-frontend-840535137820.us-central1.run.app`
+
+If this is missing, the frontend may load but backend calls will return:
+
+```json
+{"error":"Unauthorized","message":"Sign in is required before calling this API."}
+```
+
+### Firestore
+
+1. Open `Firestore Database`
+2. Create the database in Native mode if it does not already exist
+
+### Storage
+
+1. Open `Storage`
+2. Create the default bucket if it does not already exist
+3. Your current bucket name is:
+
+```text
+personal-claw-1.firebasestorage.app
+```
+
+You also need storage rules that allow the authenticated Firebase user to upload profile photos.
+
+## 3. Google Cloud Setup
+
+Enable required APIs:
 
 ```bash
 gcloud services enable \
@@ -94,20 +128,212 @@ gcloud services enable \
   cloudscheduler.googleapis.com \
   cloudtasks.googleapis.com \
   translate.googleapis.com \
+  iamcredentials.googleapis.com \
+  containerregistry.googleapis.com \
   --project personal-claw-1
 ```
 
-2. Create Cloud Tasks queue:
+If you want Maps features, also enable in Google Cloud Console:
+
+- Maps JavaScript API
+- Places API
+
+If you want route/directions behavior, make sure billing is enabled for the Maps project.
+
+## 4. Backend Environment Setup
+
+You can either:
+
+- export variables directly in your terminal, or
+- copy the example values into your own local env workflow
+
+Example file: [backend/.env.example](/Users/howy/Desktop/swiftFlow/backend/.env.example)
+
+Key variables:
+
+- `PORT`
+- `GOOGLE_CLOUD_PROJECT`
+- `FIREBASE_PROJECT_ID`
+- `VERTEX_AI_LOCATION`
+- `GEMINI_MODEL`
+- `TRANSLATION_ENABLED`
+- `TRANSLATION_FALLBACK_LANGUAGE`
+- `BACKEND_BASE_URL`
+- `INTERNAL_TASK_SECRET`
+- `CLOUD_TASKS_LOCATION`
+- `CLOUD_TASKS_QUEUE`
+- `TASK_INVOKER_SERVICE_ACCOUNT`
+- `ALLOWED_ORIGINS`
+- `ALLOW_UNAUTHENTICATED_DEV`
+- `DEV_USER_ID`
+
+### Local backend example
 
 ```bash
-gcloud tasks queues create swiftflow-trip-tasks \
-  --location=us-central1 \
-  --max-dispatches-per-second=5 \
-  --max-concurrent-dispatches=10 \
-  --project personal-claw-1
+cd /Users/howy/Desktop/swiftFlow/backend
+
+export PORT=3001
+export GOOGLE_CLOUD_PROJECT=personal-claw-1
+export FIREBASE_PROJECT_ID=personal-claw-1
+export VERTEX_AI_LOCATION=us-central1
+export GEMINI_MODEL=gemini-1.5-flash
+export TRANSLATION_ENABLED=true
+export TRANSLATION_FALLBACK_LANGUAGE=en
+export ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+export ALLOW_UNAUTHENTICATED_DEV=false
+
+npm run dev
 ```
 
-3. Deploy backend:
+### Local backend with unauthenticated dev fallback
+
+Only use this for local debugging if you want to bypass Firebase token requirements:
+
+```bash
+export ALLOW_UNAUTHENTICATED_DEV=true
+export DEV_USER_ID=local-dev-user
+```
+
+## 5. Frontend Environment Setup
+
+You can either:
+
+- create `frontend/.env`, or
+- inject the values during build/deploy
+
+Example file: [frontend/.env.example](/Users/howy/Desktop/swiftFlow/frontend/.env.example)
+
+Required build-time variables:
+
+- `VITE_API_BASE_URL`
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_GOOGLE_MAPS_API_KEY` (optional)
+
+### Local frontend `.env`
+
+Create `frontend/.env` with something like:
+
+```env
+VITE_API_BASE_URL=http://localhost:3001
+VITE_FIREBASE_API_KEY=YOUR_FIREBASE_WEB_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN=personal-claw-1.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=personal-claw-1
+VITE_FIREBASE_APP_ID=YOUR_FIREBASE_WEB_APP_ID
+VITE_FIREBASE_STORAGE_BUCKET=personal-claw-1.firebasestorage.app
+VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
+```
+
+If you do not want Google Maps features locally, leave `VITE_GOOGLE_MAPS_API_KEY` empty.
+
+## 6. Run Locally
+
+Start backend:
+
+```bash
+cd /Users/howy/Desktop/swiftFlow/backend
+npm run dev
+```
+
+Start frontend in another terminal:
+
+```bash
+cd /Users/howy/Desktop/swiftFlow/frontend
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+## 7. Local Testing Notes
+
+### Recommended local mode
+
+Use:
+
+- frontend -> local backend
+- `VITE_API_BASE_URL=http://localhost:3001`
+- backend `ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"`
+
+### Local frontend calling cloud backend
+
+If your frontend is local but backend is Cloud Run, backend must allow both local origins:
+
+```bash
+ALLOWED_ORIGINS="https://your-frontend-cloud-run-url,http://localhost:5173,http://127.0.0.1:5173"
+```
+
+### Common first-load issue
+
+If frontend shows a backend fetch error on first load:
+
+- backend may be cold-starting
+- Firebase anonymous auth may not be ready yet
+- backend may reject request because no token was attached
+- CORS may not allow your exact frontend origin
+
+## 8. Deployment Using `deploy.sh`
+
+The preferred production deploy path is:
+
+```bash
+cd /Users/howy/Desktop/swiftFlow
+./deploy.sh
+```
+
+Before running it:
+
+```bash
+gcloud auth login
+gcloud config set project personal-claw-1
+```
+
+Then export the required variables:
+
+```bash
+export PROJECT_ID="personal-claw-1"
+export REGION="us-central1"
+export INTERNAL_TASK_SECRET="$(openssl rand -hex 32)"
+export FIREBASE_API_KEY="your_firebase_web_api_key"
+export FIREBASE_APP_ID="your_firebase_web_app_id"
+export FIREBASE_AUTH_DOMAIN="personal-claw-1.firebaseapp.com"
+export FIREBASE_STORAGE_BUCKET="personal-claw-1.firebasestorage.app"
+export GOOGLE_MAPS_API_KEY="your_google_maps_api_key"
+export EXTRA_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
+```
+
+Then run:
+
+```bash
+./deploy.sh
+```
+
+### What `deploy.sh` does
+
+It:
+
+1. enables required Google Cloud APIs
+2. ensures the Cloud Tasks queue exists
+3. ensures service accounts exist where needed
+4. deploys backend to Cloud Run
+5. reads the real backend URL
+6. creates or updates the Cloud Scheduler job
+7. builds frontend with the correct Vite env vars
+8. deploys frontend to Cloud Run
+9. reads the real frontend URL
+10. patches backend `ALLOWED_ORIGINS` and `BACKEND_BASE_URL`
+
+## 9. Manual Cloud Run Deployment
+
+If you do not want to use the script, these are the manual steps.
+
+### Step 1: deploy backend
 
 ```bash
 gcloud run deploy swiftflow-backend \
@@ -115,42 +341,28 @@ gcloud run deploy swiftflow-backend \
   --region us-central1 \
   --project personal-claw-1 \
   --allow-unauthenticated \
-  --set-env-vars GOOGLE_CLOUD_PROJECT=personal-claw-1,FIREBASE_PROJECT_ID=personal-claw-1,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,TRANSLATION_ENABLED=true,TRANSLATION_FALLBACK_LANGUAGE=en,BACKEND_BASE_URL=https://YOUR_BACKEND_URL,INTERNAL_TASK_SECRET=YOUR_LONG_RANDOM_SECRET,CLOUD_TASKS_LOCATION=us-central1,CLOUD_TASKS_QUEUE=swiftflow-trip-tasks,TASK_INVOKER_SERVICE_ACCOUNT=swiftflow-tasks@personal-claw-1.iam.gserviceaccount.com,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=https://YOUR_FRONTEND_URL
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=personal-claw-1,FIREBASE_PROJECT_ID=personal-claw-1,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,TRANSLATION_ENABLED=true,TRANSLATION_FALLBACK_LANGUAGE=en,BACKEND_BASE_URL=,INTERNAL_TASK_SECRET=YOUR_SECRET,CLOUD_TASKS_LOCATION=us-central1,CLOUD_TASKS_QUEUE=swiftflow-trip-tasks,TASK_INVOKER_SERVICE_ACCOUNT=,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173"
 ```
 
-4. Create Scheduler job:
+### Step 2: get backend URL
 
 ```bash
-gcloud scheduler jobs create http swiftflow-expire-tickets \
-  --location=us-central1 \
-  --schedule="*/5 * * * *" \
-  --time-zone="UTC" \
-  --uri="https://YOUR_BACKEND_URL/api/cron/expire-tickets" \
-  --http-method=POST \
-  --headers="X-SwiftFlow-Task-Secret=YOUR_LONG_RANDOM_SECRET" \
-  --oidc-service-account-email=swiftflow-scheduler@personal-claw-1.iam.gserviceaccount.com \
-  --oidc-token-audience="https://YOUR_BACKEND_URL" \
-  --project personal-claw-1
+gcloud run services describe swiftflow-backend \
+  --region us-central1 \
+  --project personal-claw-1 \
+  --format='value(status.url)'
 ```
 
-Where this is used:
-
-- Cloud Scheduler calls `/api/cron/expire-tickets` every 5 minutes for broad cleanup.
-- Confirming an RTS or bus booking queues Cloud Tasks for:
-  - `/api/tasks/send-trip-reminder`, 15 minutes before departure.
-  - `/api/tasks/expire-ticket`, 5 minutes after departure.
-- Task handlers update Firestore read models so the frontend can show reminder/expired states.
-
-5. Build the frontend image with production Vite variables:
+### Step 3: build frontend image
 
 ```bash
 gcloud builds submit frontend \
   --config frontend/cloudbuild.yaml \
   --project personal-claw-1 \
-  --substitutions _IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_FIREBASE_STORAGE_BUCKET,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
+  --substitutions "_IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=personal-claw-1.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_FIREBASE_STORAGE_BUCKET=personal-claw-1.firebasestorage.app,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY"
 ```
 
-6. Deploy the frontend image:
+### Step 4: deploy frontend
 
 ```bash
 gcloud run deploy swiftflow-frontend \
@@ -161,48 +373,192 @@ gcloud run deploy swiftflow-frontend \
   --port 80
 ```
 
-7. After the frontend URL is known, redeploy or update the backend `ALLOWED_ORIGINS` value to the exact frontend URL.
-
-Deployment smoke tests:
+### Step 5: update backend with real allowed origins
 
 ```bash
-curl -s https://YOUR_BACKEND_URL/health
+gcloud run services update swiftflow-backend \
+  --region us-central1 \
+  --project personal-claw-1 \
+  --update-env-vars "BACKEND_BASE_URL=https://YOUR_BACKEND_URL,ALLOWED_ORIGINS=https://YOUR_FRONTEND_URL,http://localhost:5173,http://127.0.0.1:5173"
+```
 
-curl -s -X POST https://YOUR_BACKEND_URL/api/cron/expire-tickets \
-  -H "X-SwiftFlow-Task-Secret: YOUR_LONG_RANDOM_SECRET"
+## 10. Background Jobs Setup
 
-gcloud tasks queues describe swiftflow-trip-tasks \
+SwiftFlow supports:
+
+- broad ticket expiry cleanup with Cloud Scheduler
+- per-trip reminder/expiry with Cloud Tasks
+
+### Cloud Tasks queue
+
+```bash
+gcloud tasks queues create swiftflow-trip-tasks \
   --location=us-central1 \
-  --project personal-claw-1
-
-gcloud scheduler jobs describe swiftflow-expire-tickets \
-  --location=us-central1 \
+  --max-dispatches-per-second=5 \
+  --max-concurrent-dispatches=10 \
   --project personal-claw-1
 ```
 
-Firebase setup:
+### Cloud Scheduler job
 
-- Enable Firebase Authentication
-- Enable the Anonymous sign-in provider
-- Add the frontend Cloud Run URL to Firebase Authorized Domains
-- Enable Firebase Storage and configure rules for authenticated profile photo uploads
+```bash
+gcloud scheduler jobs create http swiftflow-expire-tickets \
+  --location us-central1 \
+  --schedule "*/5 * * * *" \
+  --time-zone "UTC" \
+  --uri "https://YOUR_BACKEND_URL/api/cron/expire-tickets" \
+  --http-method POST \
+  --headers "X-SwiftFlow-Task-Secret=YOUR_SECRET" \
+  --oidc-service-account-email "swiftflow-scheduler@personal-claw-1.iam.gserviceaccount.com" \
+  --oidc-token-audience "https://YOUR_BACKEND_URL" \
+  --project personal-claw-1
+```
 
-Google Maps setup:
+## 11. Smoke Tests
 
-- Enable Maps JavaScript API and Places API in Google Cloud.
-- Enable route/directions billing for walking route estimates.
-- Restrict the browser API key by HTTP referrer to local dev and Cloud Run frontend domains.
+### Backend health
 
-Cloud Translation setup:
+```bash
+curl -s https://swiftflow-backend-840535137820.us-central1.run.app/health
+```
 
-- Enable Cloud Translation API.
-- The backend reads the browser `Accept-Language` header.
-- To force a language during tests, pass `X-SwiftFlow-Language`, for example `ms`, `zh`, or `ta`.
-- Translated responses currently cover alert read-model text and Gemini exploration suggestions.
+Expected shape:
 
-Auth model:
+```json
+{"status":"ok","service":"swiftflow-backend"}
+```
 
-- SwiftFlow uses Firebase Anonymous Auth by default, not Google sign-in
-- Users do not see a login screen
-- Each browser/device receives its own Firebase UID, so profiles are not shared globally
-- If a user clears browser data or switches devices, they may get a new guest profile unless you add account linking later
+### Scheduler endpoint
+
+```bash
+curl -s -X POST https://swiftflow-backend-840535137820.us-central1.run.app/api/cron/expire-tickets \
+  -H "X-SwiftFlow-Task-Secret: YOUR_SECRET"
+```
+
+### Queue and scheduler inspection
+
+```bash
+gcloud tasks queues describe swiftflow-trip-tasks \
+  --location us-central1 \
+  --project personal-claw-1
+
+gcloud scheduler jobs describe swiftflow-expire-tickets \
+  --location us-central1 \
+  --project personal-claw-1
+```
+
+## 12. Troubleshooting
+
+### Problem: frontend says backend could not be reached
+
+Possible causes:
+
+- Cloud Run backend cold start
+- wrong backend URL baked into frontend
+- CORS origin mismatch
+- temporary network failure
+
+Check:
+
+```bash
+curl -s https://swiftflow-backend-840535137820.us-central1.run.app/health
+```
+
+### Problem: backend returns `Unauthorized`
+
+Example:
+
+```json
+{"error":"Unauthorized","message":"Sign in is required before calling this API."}
+```
+
+This usually means:
+
+- Firebase anonymous auth is not enabled
+- frontend domain is not in Firebase Authorized Domains
+- Firebase frontend env vars are wrong
+- frontend reached backend before a Firebase ID token was ready
+
+Fix:
+
+1. enable Anonymous auth in Firebase
+2. add frontend domain to Authorized Domains
+3. confirm frontend build-time Firebase env vars
+4. redeploy frontend
+
+### Problem: profile photo upload fails
+
+Check:
+
+- Firebase Storage is enabled
+- bucket name is `personal-claw-1.firebasestorage.app`
+- Storage rules allow the signed-in Firebase user
+- Anonymous auth is enabled
+
+### Problem: Google Maps box shows fallback card
+
+Check:
+
+- `VITE_GOOGLE_MAPS_API_KEY`
+- Maps JavaScript API enabled
+- Places API enabled
+- browser key allowed referrers
+- billing enabled
+
+### Problem: deployed frontend sometimes fails only on first load
+
+Likely cause:
+
+- backend cold start
+
+Practical mitigation:
+
+```bash
+gcloud run services update swiftflow-backend \
+  --region us-central1 \
+  --project personal-claw-1 \
+  --min-instances 1
+```
+
+## 13. Useful Commands
+
+### Local build
+
+```bash
+npm --prefix frontend run build
+node --check backend/src/server.js
+```
+
+### View backend logs
+
+```bash
+gcloud run services logs read swiftflow-backend \
+  --region us-central1 \
+  --project personal-claw-1 \
+  --limit 100
+```
+
+### View frontend logs
+
+```bash
+gcloud run services logs read swiftflow-frontend \
+  --region us-central1 \
+  --project personal-claw-1 \
+  --limit 100
+```
+
+## 14. Important Limits
+
+- payments are mock only
+- carpool is mock/demo only
+- anonymous users are browser/device scoped
+- no real transport provider integration
+- no real government passport verification
+- no real payment gateway integration
+
+## 15. Related Files
+
+- [PROJECT_STATUS.md](/Users/howy/Desktop/swiftFlow/PROJECT_STATUS.md)
+- [deploy.sh](/Users/howy/Desktop/swiftFlow/deploy.sh)
+- [backend/.env.example](/Users/howy/Desktop/swiftFlow/backend/.env.example)
+- [frontend/.env.example](/Users/howy/Desktop/swiftFlow/frontend/.env.example)
