@@ -33,7 +33,7 @@ export const renderRequestBanner = (state) => {
         return `
             <div class="request-banner request-banner--info">
                 <span class="material-symbols-outlined filled">sync</span>
-                <span>Loading live backend data...</span>
+                <span>Creating your private guest profile and loading live backend data...</span>
             </div>
         `;
     }

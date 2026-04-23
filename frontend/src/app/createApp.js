@@ -1,5 +1,6 @@
 import { createInitialState } from "../data/initialState.js";
 import { apiClient } from "../api/client.js";
+import { getFirebaseIdToken, initializeFirebaseSession } from "../lib/firebase.js";
 import { openPass, setActiveTab } from "../state/mutations.js";
 import { syncDerivedTimes, formatCountdown } from "../utils/time.js";
 import { renderLayout } from "../views/layout.js";
@@ -8,12 +9,17 @@ import { renderPage } from "../views/renderPage.js";
 export const createApp = (root) => {
     const state = Object.assign(createInitialState(), {
         isBootstrapping: true,
+        isAuthenticated: false,
+        authDisplayName: "Guest",
+        authInitials: "SF",
         pendingAction: "",
         errorMessage: "",
         noticeMessage: "",
         selectedRewardId: "vep-offset",
         showAlertRoutes: false,
         profileQrMode: "rts",
+        isEditingProfile: false,
+        profileDraft: null,
     });
 
     const applyServerState = (serverState, options = {}) => {
@@ -31,15 +37,48 @@ export const createApp = (root) => {
             selectedRewardId: state.selectedRewardId,
             showAlertRoutes: state.showAlertRoutes,
             profileQrMode: state.profileQrMode,
+            isAuthenticated: state.isAuthenticated,
+            authDisplayName: state.authDisplayName,
+            authInitials: state.authInitials,
+            isEditingProfile: state.isEditingProfile,
+            profileDraft: state.profileDraft,
         };
 
         Object.assign(state, serverState, uiState);
         state.activeTab = preserveTab ? currentActiveTab : serverState.activeTab;
         state.countdownSeconds = preserveCountdown ? currentCountdownSeconds : serverState.countdownSeconds;
+
+        if (!state.isEditingProfile) {
+            state.profileDraft = {
+                displayName: state.profileDetails?.displayName ?? "",
+                email: state.profileDetails?.email ?? "",
+                preferredDestination: state.profileDetails?.preferredDestination ?? state.booking?.destination ?? "",
+                primaryMode: state.profileDetails?.primaryMode ?? state.routeMode ?? "",
+                homeHub: state.profileDetails?.homeHub ?? "",
+                bio: state.profileDetails?.bio ?? "",
+            };
+        }
     };
 
     const render = () => {
         root.innerHTML = renderLayout(state, renderPage(state));
+    };
+
+    const applyAuthSession = (session) => {
+        if (!session?.enabled || !session.userId) {
+            state.isAuthenticated = false;
+            state.authDisplayName = "Guest";
+            state.authInitials = "SF";
+            return;
+        }
+
+        const source = session.displayName ?? session.email ?? "SwiftFlow User";
+        const parts = source.trim().split(/\s+/).filter(Boolean);
+        const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
+
+        state.isAuthenticated = true;
+        state.authDisplayName = source;
+        state.authInitials = initials || "SF";
     };
 
     const syncStateFromServer = async (options = {}) => {
@@ -115,6 +154,47 @@ export const createApp = (root) => {
                 : "Showing booked RTS QR.";
             state.errorMessage = "";
             render();
+            return;
+        }
+
+        if (action === "edit-profile") {
+            state.isEditingProfile = true;
+            state.profileDraft = {
+                displayName: state.profileDetails?.displayName ?? "",
+                email: state.profileDetails?.email ?? "",
+                preferredDestination: state.profileDetails?.preferredDestination ?? state.booking?.destination ?? "",
+                primaryMode: state.profileDetails?.primaryMode ?? state.routeMode ?? "",
+                homeHub: state.profileDetails?.homeHub ?? "",
+                bio: state.profileDetails?.bio ?? "",
+            };
+            state.noticeMessage = "";
+            state.errorMessage = "";
+            render();
+            return;
+        }
+
+        if (action === "cancel-profile-edit") {
+            state.isEditingProfile = false;
+            state.profileDraft = {
+                displayName: state.profileDetails?.displayName ?? "",
+                email: state.profileDetails?.email ?? "",
+                preferredDestination: state.profileDetails?.preferredDestination ?? state.booking?.destination ?? "",
+                primaryMode: state.profileDetails?.primaryMode ?? state.routeMode ?? "",
+                homeHub: state.profileDetails?.homeHub ?? "",
+                bio: state.profileDetails?.bio ?? "",
+            };
+            state.noticeMessage = "";
+            state.errorMessage = "";
+            render();
+            return;
+        }
+
+        if (action === "save-profile") {
+            await runRequest("save-profile", () => apiClient.updateProfile(state.profileDraft ?? {}), {
+                successMessage: "Profile saved.",
+                nextTab: "profile",
+            });
+            state.isEditingProfile = false;
             return;
         }
 
@@ -324,6 +404,16 @@ export const createApp = (root) => {
         await handleFieldChange(field, event.target.value);
     });
 
+    root.addEventListener("input", (event) => {
+        const profileField = event.target.dataset.profileField;
+        if (!profileField) {
+            return;
+        }
+
+        state.profileDraft = state.profileDraft ?? {};
+        state.profileDraft[profileField] = event.target.value;
+    });
+
     window.setInterval(() => {
         if (state.countdownSeconds > 0) {
             state.countdownSeconds -= 1;
@@ -337,10 +427,21 @@ export const createApp = (root) => {
 
     syncDerivedTimes(state);
     render();
+    apiClient.setAuthTokenGetter(getFirebaseIdToken);
 
-    syncStateFromServer({ preserveTab: false, preserveCountdown: false })
+    initializeFirebaseSession()
+        .then((session) => {
+            applyAuthSession(session);
+
+            if (!session?.userId) {
+                state.noticeMessage = "Guest profile is running locally on this device.";
+                return null;
+            }
+
+            return syncStateFromServer({ preserveTab: false, preserveCountdown: false });
+        })
         .catch((error) => {
-            state.errorMessage = error instanceof Error ? error.message : "Unable to reach the backend.";
+            state.errorMessage = error instanceof Error ? error.message : "Unable to create a guest profile or reach the backend.";
         })
         .finally(() => {
             state.isBootstrapping = false;

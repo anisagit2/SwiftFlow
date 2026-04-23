@@ -73,7 +73,7 @@ export const renderBusBookingPage = (state) => `
         <article class="panel panel--bus-ticket">
             <span class="eyebrow">Payment</span>
             <h2>${state.busBooking.fare}</h2>
-            <p>Choose how the bus fare should be charged if you switch from RTS to the checkpoint bus.</p>
+            <p>Choose the mock payment method to display if you switch from RTS to the checkpoint bus. No real payment is processed yet.</p>
             <div class="payment-list">
                 <label class="field-card field-card--payment">
                     <small>Payment method</small>
@@ -99,7 +99,7 @@ export const renderBusBookingPage = (state) => `
                 </button>
             </div>
             <p class="support-copy">
-                ${state.busBooking.confirmed ? "Your fallback bus choice is now persisted and can be reopened after refresh." : "Confirm the bus booking to save the selected route, departure time, and payment method."}
+                ${state.busBooking.confirmed ? "Your fallback bus choice is now persisted with a mock payment preview." : "Confirm the bus booking to save the selected route, departure time, and mock payment method."}
             </p>
         </article>
     </section>

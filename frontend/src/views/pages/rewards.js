@@ -3,6 +3,7 @@ const selectedReward = (state) =>
 
 export const renderRewardsPage = (state) => {
     const reward = selectedReward(state);
+    const recentRedemptions = state.rewardRedemptions ?? [];
 
     return `
         <section class="hero-card hero-card--rewards">
@@ -76,6 +77,32 @@ export const renderRewardsPage = (state) => {
                     </article>
                 `).join("")}
             </div>
+        </section>
+
+        <section class="panel">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Recent redemptions</span>
+                    <h2>Reward history</h2>
+                </div>
+            </div>
+            ${recentRedemptions.length ? `
+                <div class="earnings-list">
+                    ${recentRedemptions.map((item) => `
+                        <article class="earning-card">
+                            <div class="earning-icon">
+                                <span class="material-symbols-outlined">redeem</span>
+                            </div>
+                            <div class="earning-copy">
+                                <h4>${item.rewardName}</h4>
+                                <p>${item.status} redemption</p>
+                                <small>${item.redeemedAt ? new Date(item.redeemedAt).toLocaleString() : ""}</small>
+                            </div>
+                            <div class="earning-value">-${item.cost}</div>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : "<p>No reward redemptions yet.</p>"}
         </section>
     `;
 };

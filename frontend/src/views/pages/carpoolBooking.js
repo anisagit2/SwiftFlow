@@ -50,7 +50,7 @@ export const renderCarpoolBookingPage = (state) => {
             <article class="panel panel--carpool-ticket">
                 <span class="eyebrow">Selected ride</span>
                 <h2>${driver.price}</h2>
-                <p>${driver.hovLane} and ${driver.credits} for shared border travel.</p>
+                <p>${driver.hovLane} and ${driver.credits} for shared border travel. Driver and taxi data are mock for now.</p>
                 <div class="payment-list">
                     <label class="field-card field-card--payment">
                         <small>Payment method</small>
@@ -80,7 +80,7 @@ export const renderCarpoolBookingPage = (state) => {
                     </button>
                 </div>
                 <p class="support-copy">
-                    ${state.carpoolBooking.confirmed && state.carpoolBooking.driverId === driver.id ? "This driver reservation is stored in the backend with the latest payment selection." : "Reserve the currently selected driver to save the ride and reduce the visible seat count."}
+                    ${state.carpoolBooking.confirmed && state.carpoolBooking.driverId === driver.id ? "This driver reservation is stored in the backend with the latest mock payment selection." : "Reserve the currently selected mock driver to save the ride preview and reduce the visible seat count."}
                 </p>
             </article>
         </section>

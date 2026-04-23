@@ -73,7 +73,7 @@ export const renderTrainBookingPage = (state) => `
         <article class="panel panel--ticket">
             <span class="eyebrow">Payment</span>
             <h2>${state.booking.fare}</h2>
-            <p>Choose how the train fare will be charged once the booking is confirmed.</p>
+            <p>Choose the mock payment method to display with this train booking. No real payment is processed yet.</p>
             <div class="payment-list">
                 <label class="field-card field-card--payment">
                     <small>Payment method</small>
@@ -99,7 +99,7 @@ export const renderTrainBookingPage = (state) => `
                 </button>
             </div>
             <p class="support-copy">
-                ${state.booking.confirmed ? "Your RTS booking is saved in the backend and ready to reference." : "Confirm the RTS booking to persist the current time, destination, and payment method."}
+                ${state.booking.confirmed ? "Your RTS booking is saved in the backend with a mock payment preview for reference." : "Confirm the RTS booking to persist the current time, destination, and mock payment method."}
             </p>
         </article>
     </section>

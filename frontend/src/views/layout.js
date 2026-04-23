@@ -16,7 +16,7 @@ export const renderLayout = (state, content) => `
                 <button class="icon-button" aria-label="Open alerts" data-nav="alerts">
                     <span class="material-symbols-outlined">notifications</span>
                 </button>
-                <div class="avatar">HF</div>
+                <div class="avatar" title="Private guest profile on this device">${state.authInitials}</div>
             </div>
         </header>
 

@@ -9,23 +9,33 @@ const renderBookingStatus = (label, confirmed) => `
 
 export const renderProfilePage = (state) => {
     const driver = selectedCarpoolDriver(state);
+    const profile = state.profileDetails ?? {};
+    const draft = state.profileDraft ?? profile;
+    const tripHistory = state.tripHistory ?? [];
     const hasTrainBooking = Boolean(state.booking);
     const hasBusBooking = Boolean(state.busBooking);
     const hasCarpoolReservation = Boolean(state.carpoolBooking?.confirmed);
-    const activeTrips = [state.booking.confirmed, state.busBooking.confirmed, hasCarpoolReservation].filter(Boolean).length;
+    const activeTrips = profile.activeTrips ?? [state.booking.confirmed, state.busBooking.confirmed, hasCarpoolReservation].filter(Boolean).length;
     const qrMode = state.profileQrMode ?? "rts";
     const precheckinCode = `PCHK-${state.booking.departureTime.replace(":", "")}-${state.routeGate.replace(/\s+/g, "").slice(0, 4).toUpperCase()}`;
+    const nameSource = profile.displayName ?? state.authDisplayName ?? "SwiftFlow User";
+    const initials = nameSource
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? "")
+        .join("") || "SF";
 
     return `
         <section class="hero-card hero-card--profile">
             <div class="hero-orb hero-orb--green"></div>
             <div class="profile-hero">
                 <div class="profile-row">
-                    <div class="profile-avatar">HF</div>
+                    <div class="profile-avatar">${initials}</div>
                     <div>
                         <span class="eyebrow">Commuter profile</span>
-                        <h1>Howy Flow</h1>
-                        <p>Border commute wallet with live booking details, payment confirmations, and backup travel options in one place.</p>
+                        <h1>${nameSource}</h1>
+                        <p>${profile.email ?? "Border commute wallet with live booking details, payment confirmations, and backup travel options in one place."}</p>
                     </div>
                 </div>
 
@@ -36,7 +46,7 @@ export const renderProfilePage = (state) => {
                     </div>
                     <div class="metric-card">
                         <small>Primary mode</small>
-                        <strong>${state.routeMode}</strong>
+                        <strong>${profile.primaryMode ?? state.routeMode}</strong>
                     </div>
                     <div class="metric-card">
                         <small>Green impact</small>
@@ -67,7 +77,7 @@ export const renderProfilePage = (state) => {
                     </div>
                     <div class="payment-row">
                         <small>Destination</small>
-                        <strong>${state.booking.destination}</strong>
+                        <strong>${profile.preferredDestination ?? state.booking.destination}</strong>
                     </div>
                     <div class="payment-row">
                         <small>Credits balance</small>
@@ -76,6 +86,10 @@ export const renderProfilePage = (state) => {
                 </div>
                 <div class="stack-actions">
                     <button class="secondary-action" data-nav="passport-checkin">Open passport pre-check-in</button>
+                    <button class="secondary-action" data-action="${state.isEditingProfile ? "cancel-profile-edit" : "edit-profile"}">
+                        <span>${state.isEditingProfile ? "Cancel profile edit" : "Edit profile"}</span>
+                        <span class="material-symbols-outlined">${state.isEditingProfile ? "close" : "edit"}</span>
+                    </button>
                 </div>
             </article>
 
@@ -116,6 +130,48 @@ export const renderProfilePage = (state) => {
         <section class="panel">
             <div class="section-head">
                 <div>
+                    <span class="eyebrow">Profile details</span>
+                    <h2>One user, one editable profile</h2>
+                </div>
+                <span class="material-symbols-outlined accent">person_edit</span>
+            </div>
+            <div class="selector-grid">
+                <label class="field-card">
+                    <small>Display name</small>
+                    <input data-profile-field="displayName" value="${draft.displayName ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
+                </label>
+                <label class="field-card">
+                    <small>Email</small>
+                    <input data-profile-field="email" value="${draft.email ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
+                </label>
+                <label class="field-card">
+                    <small>Preferred destination</small>
+                    <input data-profile-field="preferredDestination" value="${draft.preferredDestination ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
+                </label>
+                <label class="field-card">
+                    <small>Primary mode</small>
+                    <input data-profile-field="primaryMode" value="${draft.primaryMode ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
+                </label>
+                <label class="field-card">
+                    <small>Home hub</small>
+                    <input data-profile-field="homeHub" value="${draft.homeHub ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
+                </label>
+                <label class="field-card">
+                    <small>Bio</small>
+                    <input data-profile-field="bio" value="${draft.bio ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
+                </label>
+            </div>
+            <div class="stack-actions">
+                <button class="primary-action" data-action="save-profile" ${state.isEditingProfile ? "" : "disabled"}>
+                    <span>${profile.memberSince ? "Save profile changes" : "Create profile"}</span>
+                    <span class="material-symbols-outlined">save</span>
+                </button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="section-head">
+                <div>
                     <span class="eyebrow">Saved trips</span>
                     <h2>Your current bookings</h2>
                 </div>
@@ -132,7 +188,7 @@ export const renderProfilePage = (state) => {
                             </div>
                             <span class="material-symbols-outlined">train</span>
                         </div>
-                        <p>Primary border trip with platform guidance and live payment confirmation.</p>
+                        <p>Primary border trip with platform guidance and mock payment display.</p>
                         <div class="profile-meta-grid">
                             <div class="payment-row">
                                 <small>Origin</small>
@@ -163,7 +219,7 @@ export const renderProfilePage = (state) => {
                             </div>
                             <span class="material-symbols-outlined">directions_bus</span>
                         </div>
-                        <p>Fallback ride kept ready so you can switch without re-entering trip details.</p>
+                        <p>Fallback ride kept ready so you can switch without re-entering trip details, with mock payment display only.</p>
                         <div class="profile-meta-grid">
                             <div class="payment-row">
                                 <small>Destination</small>
@@ -193,7 +249,7 @@ export const renderProfilePage = (state) => {
                         </div>
                         <span class="material-symbols-outlined">local_taxi</span>
                     </div>
-                    <p>${hasCarpoolReservation ? "Reserved shared ride with reduced seat availability and saved payment choice." : "Selected backup carpool with pickup instructions ready when you want to reserve."}</p>
+                    <p>${hasCarpoolReservation ? "Reserved shared ride preview with reduced seat availability and saved mock payment choice." : "Selected backup carpool with mock pickup instructions ready when you want to reserve."}</p>
                     <div class="profile-meta-grid">
                         <div class="payment-row">
                             <small>Pickup</small>
@@ -216,15 +272,61 @@ export const renderProfilePage = (state) => {
             </div>
         </section>
 
+        <section class="panel">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Trip history</span>
+                    <h2>Confirmed train journeys</h2>
+                </div>
+                <span class="material-symbols-outlined accent">history</span>
+            </div>
+            ${tripHistory.length ? `
+                <div class="profile-bookings-grid">
+                    ${tripHistory.map((trip) => `
+                        <article class="profile-booking-card profile-booking-card--train">
+                            <div class="profile-booking-head">
+                                <div>
+                                    ${renderBookingStatus(trip.label ?? "RTS Confirmed", trip.passStatus === "ready")}
+                                    <h3>${trip.departureTime} ${trip.routeMode} to ${trip.destination}</h3>
+                                </div>
+                                <span class="material-symbols-outlined">history</span>
+                            </div>
+                            <p>Recorded ${trip.recordedAt ? new Date(trip.recordedAt).toLocaleString() : "recently"} with checkpoint access and payment confirmation.</p>
+                            <div class="profile-meta-grid">
+                                <div class="payment-row">
+                                    <small>Origin</small>
+                                    <strong>${trip.origin}</strong>
+                                </div>
+                                <div class="payment-row">
+                                    <small>Arrival</small>
+                                    <strong>${trip.arrivalTime}</strong>
+                                </div>
+                                <div class="payment-row">
+                                    <small>Payment</small>
+                                    <strong>${trip.paymentStatus}</strong>
+                                </div>
+                                <div class="payment-row">
+                                    <small>Reference</small>
+                                    <strong>${trip.confirmationCode ?? "Pending"}</strong>
+                                </div>
+                            </div>
+                        </article>
+                    `).join("")}
+                </div>
+            ` : `
+                <p>No confirmed train journeys yet. Once you confirm an RTS booking, it will appear here automatically.</p>
+            `}
+        </section>
+
         <section class="grid-two">
             <article class="panel">
                 <span class="eyebrow">Commute summary</span>
-                <h2>${state.routeMode}</h2>
+                <h2>${profile.primaryMode ?? state.routeMode}</h2>
                 <p>The profile now acts like a compact travel wallet so the commuter can review the primary ride, backups, and pass details without jumping between tabs.</p>
                 <div class="payment-list">
                     <div class="payment-row">
                         <small>Primary departure</small>
-                        <strong>${state.booking.departureTime}</strong>
+                        <strong>${profile.latestDepartureTime ?? state.booking.departureTime}</strong>
                     </div>
                     <div class="payment-row">
                         <small>Backup bus</small>
@@ -246,7 +348,7 @@ export const renderProfilePage = (state) => {
                         <span class="material-symbols-outlined filled">verified</span>
                         <div>
                             <strong>${activeTrips} live booking${activeTrips === 1 ? "" : "s"}</strong>
-                            <p>Saved and restorable after refresh.</p>
+                            <p>${profile.memberSince ? `Member since ${profile.memberSince}.` : "Saved and restorable after refresh."}</p>
                         </div>
                     </div>
                     <div class="mini-stat">

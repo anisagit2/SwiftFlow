@@ -1,9 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
+let authTokenGetter = null;
 
 const request = async (path, options = {}) => {
+    const token = authTokenGetter ? await authTokenGetter() : null;
     const response = await fetch(`${API_BASE_URL}${path}`, {
         headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
             ...(options.headers ?? {}),
         },
         ...options,
@@ -19,6 +22,9 @@ const request = async (path, options = {}) => {
 };
 
 export const apiClient = {
+    setAuthTokenGetter: (getter) => {
+        authTokenGetter = getter;
+    },
     getState: () => request("/api/state"),
     resetState: () => request("/api/state/reset", { method: "POST" }),
     updateTrainBooking: (payload) => request("/api/bookings/train", { method: "PATCH", body: JSON.stringify(payload) }),
@@ -31,4 +37,5 @@ export const apiClient = {
     acceptCheckIn: () => request("/api/check-in", { method: "POST" }),
     acceptAlert: () => request("/api/alerts/accept", { method: "POST" }),
     redeemReward: (rewardId) => request(`/api/rewards/${rewardId}/redeem`, { method: "POST" }),
+    updateProfile: (payload) => request("/api/profile", { method: "PATCH", body: JSON.stringify(payload) }),
 };

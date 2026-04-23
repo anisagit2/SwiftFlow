@@ -2,15 +2,22 @@ import { getUrl, parseJsonBody } from "../http/request.js";
 import { sendJson } from "../http/response.js";
 import { generateExploreSuggestions } from "../ai/geminiService.js";
 
-const methodNotAllowed = (response) => {
-    sendJson(response, 405, { error: "Method not allowed" });
+const methodNotAllowed = (response, request) => {
+    sendJson(response, 405, { error: "Method not allowed" }, request);
 };
 
-const badRequest = (response, error) => {
+const badRequest = (response, error, request) => {
     sendJson(response, 400, {
         error: "Bad request",
         message: error instanceof Error ? error.message : "Invalid request.",
-    });
+    }, request);
+};
+
+const unauthorized = (response, request) => {
+    sendJson(response, 401, {
+        error: "Unauthorized",
+        message: "Sign in is required before calling this API.",
+    }, request);
 };
 
 const overview = {
@@ -22,6 +29,7 @@ const overview = {
         "POST /api/state/reset",
         "GET /api/options",
         "GET /api/explore",
+        "GET /api/trips/history",
         "GET /api/bookings/train",
         "PATCH /api/bookings/train",
         "POST /api/bookings/train/confirm",
@@ -38,250 +46,367 @@ const overview = {
         "GET /api/rewards",
         "POST /api/rewards/:rewardId/redeem",
         "GET /api/profile",
+        "PATCH /api/profile",
     ],
 };
 
-export const routeRequest = async (request, response, store) => {
+export const routeRequest = async (request, response, store, requestContext) => {
     const url = getUrl(request);
     const { pathname } = url;
+    const user = requestContext.user;
 
     if (pathname === "/health") {
         if (request.method !== "GET") {
-            methodNotAllowed(response);
+            methodNotAllowed(response, request);
             return true;
         }
 
-        sendJson(response, 200, { status: "ok", service: "swiftflow-backend" });
+        sendJson(response, 200, { status: "ok", service: "swiftflow-backend" }, request);
         return true;
     }
 
     if (pathname === "/api") {
         if (request.method !== "GET") {
-            methodNotAllowed(response);
+            methodNotAllowed(response, request);
             return true;
         }
 
-        sendJson(response, 200, overview);
+        sendJson(response, 200, overview, request);
         return true;
     }
 
     if (pathname === "/api/state") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.getState());
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.getState(user), request);
         return true;
     }
 
     if (pathname === "/api/state/reset") {
-        if (request.method !== "POST") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.resetState());
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.resetState(user), request);
         return true;
     }
 
     if (pathname === "/api/options") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, (await store.getSnapshot()).options);
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, (await store.getSnapshot(user)).options, request);
         return true;
     }
 
     if (pathname === "/api/explore") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        const exploreData = (await store.getSnapshot()).explore;
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        const exploreData = (await store.getSnapshot(user)).explore;
         const aiSuggestions = await generateExploreSuggestions(exploreData.booking.destination);
         exploreData.aiSuggestions = aiSuggestions;
         
-        sendJson(response, 200, exploreData);
+        sendJson(response, 200, exploreData, request);
+        return true;
+    }
+
+    if (pathname === "/api/trips/history") {
+        if (!user) {
+            unauthorized(response, request);
+            return true;
+        }
+
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.getTripHistory(user), request);
         return true;
     }
 
     if (pathname === "/api/bookings/train") {
+        if (!user) {
+            unauthorized(response, request);
+            return true;
+        }
+
         if (request.method === "GET") {
-            sendJson(response, 200, (await store.getSnapshot()).bookings.train);
+            sendJson(response, 200, (await store.getSnapshot(user)).bookings.train, request);
             return true;
         }
 
         if (request.method === "PATCH") {
             try {
                 const body = await parseJsonBody(request);
-                sendJson(response, 200, await store.updateTrainBooking(body));
+                sendJson(response, 200, await store.updateTrainBooking(user, body), request);
             } catch (error) {
-                badRequest(response, error);
+                badRequest(response, error, request);
             }
             return true;
         }
 
-        methodNotAllowed(response);
+        methodNotAllowed(response, request);
         return true;
     }
 
     if (pathname === "/api/bookings/train/confirm") {
-        if (request.method !== "POST") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.confirmTrainBooking());
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.confirmTrainBooking(user), request);
         return true;
     }
 
     if (pathname === "/api/bookings/bus") {
+        if (!user) {
+            unauthorized(response, request);
+            return true;
+        }
+
         if (request.method === "GET") {
-            sendJson(response, 200, (await store.getSnapshot()).bookings.bus);
+            sendJson(response, 200, (await store.getSnapshot(user)).bookings.bus, request);
             return true;
         }
 
         if (request.method === "PATCH") {
             try {
                 const body = await parseJsonBody(request);
-                sendJson(response, 200, await store.updateBusBooking(body));
+                sendJson(response, 200, await store.updateBusBooking(user, body), request);
             } catch (error) {
-                badRequest(response, error);
+                badRequest(response, error, request);
             }
             return true;
         }
 
-        methodNotAllowed(response);
+        methodNotAllowed(response, request);
         return true;
     }
 
     if (pathname === "/api/bookings/bus/confirm") {
-        if (request.method !== "POST") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.confirmBusBooking());
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.confirmBusBooking(user), request);
         return true;
     }
 
     if (pathname === "/api/bookings/carpool") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.getCarpoolBooking());
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.getCarpoolBooking(user), request);
         return true;
     }
 
     if (pathname === "/api/bookings/carpool/select-driver") {
+        if (!user) {
+            unauthorized(response, request);
+            return true;
+        }
+
         if (request.method !== "PATCH") {
-            methodNotAllowed(response);
+            methodNotAllowed(response, request);
             return true;
         }
 
         try {
             const body = await parseJsonBody(request);
-            sendJson(response, 200, await store.selectCarpoolDriver(body.driverId));
+            sendJson(response, 200, await store.selectCarpoolDriver(user, body.driverId), request);
         } catch (error) {
-            badRequest(response, error);
+            badRequest(response, error, request);
         }
         return true;
     }
 
     if (pathname === "/api/bookings/carpool/payment") {
+        if (!user) {
+            unauthorized(response, request);
+            return true;
+        }
+
         if (request.method !== "PATCH") {
-            methodNotAllowed(response);
+            methodNotAllowed(response, request);
             return true;
         }
 
         try {
             const body = await parseJsonBody(request);
-            sendJson(response, 200, await store.updateCarpoolPayment(body.paymentMethod));
+            sendJson(response, 200, await store.updateCarpoolPayment(user, body.paymentMethod), request);
         } catch (error) {
-            badRequest(response, error);
+            badRequest(response, error, request);
         }
         return true;
     }
 
     if (pathname === "/api/bookings/carpool/confirm") {
-        if (request.method !== "POST") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.confirmCarpoolBooking());
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.confirmCarpoolBooking(user), request);
         return true;
     }
 
     if (pathname === "/api/check-in") {
-        if (request.method !== "POST") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.activateCheckIn());
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.activateCheckIn(user), request);
         return true;
     }
 
     if (pathname === "/api/alerts/accept") {
-        if (request.method !== "POST") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.acceptAlert());
+        if (request.method !== "POST") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.acceptAlert(user), request);
         return true;
     }
 
     if (pathname === "/api/credits") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.getCredits());
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.getCredits(user), request);
         return true;
     }
 
     if (pathname === "/api/rewards") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.getRewards());
+        if (request.method !== "GET") {
+            methodNotAllowed(response, request);
+            return true;
+        }
+
+        sendJson(response, 200, await store.getRewards(user), request);
         return true;
     }
 
     const rewardMatch = pathname.match(/^\/api\/rewards\/([^/]+)\/redeem$/);
 
     if (rewardMatch) {
+        if (!user) {
+            unauthorized(response, request);
+            return true;
+        }
+
         if (request.method !== "POST") {
-            methodNotAllowed(response);
+            methodNotAllowed(response, request);
             return true;
         }
 
         try {
-            sendJson(response, 200, await store.redeemReward(rewardMatch[1]));
+            sendJson(response, 200, await store.redeemReward(user, rewardMatch[1]), request);
         } catch (error) {
-            badRequest(response, error);
+            badRequest(response, error, request);
         }
         return true;
     }
 
     if (pathname === "/api/profile") {
-        if (request.method !== "GET") {
-            methodNotAllowed(response);
+        if (!user) {
+            unauthorized(response, request);
             return true;
         }
 
-        sendJson(response, 200, await store.getProfile());
+        if (request.method === "GET") {
+            sendJson(response, 200, await store.getProfile(user), request);
+            return true;
+        }
+
+        if (request.method === "PATCH") {
+            try {
+                const body = await parseJsonBody(request);
+                sendJson(response, 200, await store.updateProfile(user, body), request);
+            } catch (error) {
+                badRequest(response, error, request);
+            }
+            return true;
+        }
+
+        methodNotAllowed(response, request);
         return true;
     }
 

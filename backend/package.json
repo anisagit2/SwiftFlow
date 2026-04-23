@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "deploy": "gcloud run deploy swiftflow-backend --source . --region us-central1 --allow-unauthenticated --project personal-claw-1"
+    "deploy": "gcloud run deploy swiftflow-backend --source . --region ${GOOGLE_CLOUD_REGION:-us-central1} --allow-unauthenticated --project ${GOOGLE_CLOUD_PROJECT:-personal-claw-1} --set-env-vars GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT:-personal-claw-1},FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-personal-claw-1},VERTEX_AI_LOCATION=${VERTEX_AI_LOCATION:-us-central1},GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash},ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:5173}"
   },
   "dependencies": {
     "@google-cloud/vertexai": "^1.12.0",

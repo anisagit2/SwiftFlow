@@ -60,7 +60,7 @@ export const renderCreditsPage = (state) => `
             </div>
         </div>
         <div class="earnings-list">
-            ${state.recentCredits.map((item) => `
+            ${(state.creditLedger?.length ? state.creditLedger : state.recentCredits).map((item) => `
                 <article class="earning-card">
                     <div class="earning-icon">
                         <span class="material-symbols-outlined">${item.icon}</span>
@@ -68,9 +68,9 @@ export const renderCreditsPage = (state) => `
                     <div class="earning-copy">
                         <h4>${item.title}</h4>
                         <p>${item.detail}</p>
-                        <small>${item.time}</small>
+                        <small>${item.time ?? (item.recordedAt ? new Date(item.recordedAt).toLocaleString() : "")}</small>
                     </div>
-                    <div class="earning-value">+${item.amount}</div>
+                    <div class="earning-value">${item.amount > 0 ? "+" : ""}${item.amount}</div>
                 </article>
             `).join("")}
         </div>
