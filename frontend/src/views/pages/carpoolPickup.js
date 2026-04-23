@@ -1,4 +1,5 @@
 import { selectedCarpoolDriver } from "../../state/selectors.js";
+import { escapeHtml } from "../helpers.js";
 
 export const renderCarpoolPickupPage = (state) => {
     const driver = selectedCarpoolDriver(state);
@@ -23,10 +24,19 @@ export const renderCarpoolPickupPage = (state) => {
 
         <section class="grid-two">
             <article class="panel carpool-map-panel">
-                <div class="map-pin">
-                    <span class="material-symbols-outlined filled">place</span>
+                <div
+                    class="google-map"
+                    data-google-map="carpool-pickup"
+                    aria-label="Interactive walking map to ${escapeHtml(driver.pickupSpot)}"
+                >
+                    <div class="map-pin">
+                        <span class="material-symbols-outlined filled">place</span>
+                    </div>
+                    <div class="map-caption">
+                        <strong>${driver.pickupSpot}</strong>
+                        <span data-map-status>Map preview. Google Maps loads here when configured.</span>
+                    </div>
                 </div>
-                <div class="map-caption">${driver.pickupSpot}</div>
             </article>
 
             <article class="panel">
@@ -52,7 +62,7 @@ export const renderCarpoolPickupPage = (state) => {
                     </div>
                     <div class="ticket-stat">
                         <small>Walk ETA</small>
-                        <strong>${driver.pickupEta}</strong>
+                        <strong data-route-eta>${driver.pickupEta}</strong>
                     </div>
                     <div class="ticket-stat">
                         <small>Departure time</small>

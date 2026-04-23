@@ -1,4 +1,4 @@
-import { renderOptions } from "../helpers.js";
+import { renderOptions, renderPlaceField } from "../helpers.js";
 import { selectedCarpoolDriver } from "../../state/selectors.js";
 import { formatCountdown } from "../../utils/time.js";
 
@@ -48,14 +48,8 @@ export const renderExplorePage = (state) => {
                     <span class="material-symbols-outlined accent">route</span>
                 </div>
                 <div class="selector-grid">
-                    <label class="field-card">
-                        <small>From</small>
-                        <select data-field="origin">${renderOptions(state.locationOptions, state.booking.origin)}</select>
-                    </label>
-                    <label class="field-card">
-                        <small>To</small>
-                        <select data-field="destination">${renderOptions(state.locationOptions, state.booking.destination)}</select>
-                    </label>
+                    ${renderPlaceField({ label: "From", field: "origin", value: state.booking.origin, options: state.locationOptions })}
+                    ${renderPlaceField({ label: "To", field: "destination", value: state.booking.destination, options: state.locationOptions })}
                     <label class="field-card">
                         <small>Departure time</small>
                         <select data-field="train-time">${renderOptions(state.trainTimeOptions, state.booking.departureTime)}</select>

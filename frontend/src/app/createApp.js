@@ -1,6 +1,7 @@
 import { createInitialState } from "../data/initialState.js";
 import { apiClient } from "../api/client.js";
-import { getFirebaseIdToken, initializeFirebaseSession } from "../lib/firebase.js";
+import { getFirebaseIdToken, initializeFirebaseSession, uploadProfilePicture } from "../lib/firebase.js";
+import { initializeGoogleMapsFeatures } from "../lib/googleMaps.js";
 import { openPass, setActiveTab } from "../state/mutations.js";
 import { syncDerivedTimes, formatCountdown } from "../utils/time.js";
 import { renderLayout } from "../views/layout.js";
@@ -78,6 +79,23 @@ export const createApp = (root) => {
 
     const render = () => {
         root.innerHTML = renderLayout(state, renderPage(state));
+        initializeGoogleMapsFeatures(root, state, {
+            onPlaceSelected: (field, value) => {
+                if (field && value) {
+                    handleFieldChange(field, value);
+                }
+            },
+            onRouteEstimated: (driverId, durationText) => {
+                const driver = state.carpoolDrivers.find((item) => item.id === driverId);
+                if (driver && durationText) {
+                    driver.pickupEta = durationText;
+                    const etaElement = root.querySelector("[data-route-eta]");
+                    if (etaElement) {
+                        etaElement.textContent = durationText;
+                    }
+                }
+            },
+        });
         if (pendingScrollTargetId) {
             const targetId = pendingScrollTargetId;
             pendingScrollTargetId = "";
@@ -217,6 +235,7 @@ export const createApp = (root) => {
         const initials = parts.slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
 
         state.isAuthenticated = true;
+        state.authUserId = session.userId;
         state.authDisplayName = source;
         state.authInitials = initials || "SF";
     };
@@ -703,6 +722,15 @@ export const createApp = (root) => {
     };
 
     root.addEventListener("click", async (event) => {
+        const avatarTrigger = event.target.closest("#profile-avatar-trigger");
+        if (avatarTrigger) {
+            const uploadInput = document.getElementById("profile-photo-upload");
+            if (uploadInput) {
+                uploadInput.click();
+            }
+            return;
+        }
+
         const navTarget = event.target.closest("[data-nav]");
         if (navTarget) {
             state.errorMessage = "";
@@ -721,6 +749,50 @@ export const createApp = (root) => {
     });
 
     root.addEventListener("change", async (event) => {
+        if (event.target.id === "profile-photo-upload") {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+                state.errorMessage = "Choose a JPG, PNG, or WebP image for your profile picture.";
+                render();
+                event.target.value = "";
+                return;
+            }
+
+            if (file.size > 3 * 1024 * 1024) {
+                state.errorMessage = "Choose a profile picture smaller than 3 MB.";
+                render();
+                event.target.value = "";
+                return;
+            }
+
+            if (!state.isAuthenticated || !state.isBackendConnected || !state.authUserId) {
+                state.errorMessage = "You must be online and authenticated to upload a profile picture.";
+                render();
+                return;
+            }
+
+            // Optional: check file size or type if needed. We already have 'accept' attribute.
+
+            await runRequest("upload-avatar", async () => {
+                const downloadURL = await uploadProfilePicture(state.authUserId, file);
+                await apiClient.updateProfile({ photoURL: downloadURL });
+                if (state.profileDetails) {
+                    state.profileDetails.photoURL = downloadURL;
+                }
+            }, {
+                successMessage: "Profile picture updated.",
+                nextTab: "profile",
+                preserveTab: true,
+                syncAfter: true,
+            });
+
+            // Reset the input so it can trigger change event again if the same file is selected
+            event.target.value = "";
+            return;
+        }
+
         const field = event.target.dataset.field;
         if (!field) {
             return;

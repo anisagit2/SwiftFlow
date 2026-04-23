@@ -1041,6 +1041,7 @@ export const createAppStore = () => {
                     ...state.profileDetails,
                     displayName: typeof input.displayName === "string" ? input.displayName.trim() || state.profileDetails.displayName : state.profileDetails.displayName,
                     email: typeof input.email === "string" ? input.email.trim() || state.profileDetails.email : state.profileDetails.email,
+                    photoURL: typeof input.photoURL === "string" ? input.photoURL.trim() : (state.profileDetails.photoURL ?? null),
                     preferredDestination: typeof input.preferredDestination === "string" ? input.preferredDestination.trim() || state.profileDetails.preferredDestination : state.profileDetails.preferredDestination,
                     primaryMode: typeof input.primaryMode === "string" ? input.primaryMode.trim() || state.profileDetails.primaryMode : state.profileDetails.primaryMode,
                     homeHub: typeof input.homeHub === "string" ? input.homeHub.trim() : (state.profileDetails.homeHub ?? null),

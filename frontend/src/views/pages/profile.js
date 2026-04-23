@@ -169,7 +169,27 @@ export const renderProfilePage = (state) => {
             <div class="hero-orb hero-orb--green"></div>
             <div class="profile-hero">
                 <div class="profile-row">
-                    <div class="profile-avatar">${initials}</div>
+                    <div class="profile-avatar-editor">
+                        <button
+                            class="profile-avatar-button ${profile.photoURL ? "profile-avatar-button--photo" : ""}"
+                            id="profile-avatar-trigger"
+                            type="button"
+                            title="Upload profile picture"
+                            aria-label="Upload profile picture"
+                            ${state.pendingAction === "upload-avatar" ? "disabled" : ""}
+                        >
+                            ${profile.photoURL ? `
+                                <img src="${escapeHtml(profile.photoURL)}" alt="" />
+                            ` : `
+                                <span class="profile-avatar-initials">${initials}</span>
+                            `}
+                            <span class="profile-avatar-edit">
+                                <span class="material-symbols-outlined">${state.pendingAction === "upload-avatar" ? "hourglass_top" : "photo_camera"}</span>
+                            </span>
+                        </button>
+                        <input class="visually-hidden" type="file" id="profile-photo-upload" accept="image/png, image/jpeg, image/webp" />
+                        ${state.pendingAction === "upload-avatar" ? `<span class="profile-avatar-status">Uploading...</span>` : ""}
+                    </div>
                     <div>
                         <span class="eyebrow">Commuter profile</span>
                         <h1>${escapeHtml(nameSource)}</h1>

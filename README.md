@@ -25,7 +25,8 @@ Backend env:
 Frontend env:
 
 - Copy `frontend/.env.example` into `frontend/.env`
-- Add your Firebase web app config so the frontend can create a silent anonymous Firebase session and attach a Firebase ID token to API requests
+- Add your Firebase web app config so the frontend can create a silent anonymous Firebase session, attach a Firebase ID token to API requests, and upload profile photos to Firebase Storage
+- Optional: set `VITE_GOOGLE_MAPS_API_KEY` to enable Google Places autocomplete, interactive pickup maps, and route-based walking ETA estimates. Restrict the key to your frontend domains in Google Cloud.
 
 Backend API coverage:
 
@@ -70,7 +71,7 @@ gcloud run deploy swiftflow-backend \
 gcloud builds submit frontend \
   --config frontend/cloudbuild.yaml \
   --project personal-claw-1 \
-  --substitutions _IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID
+  --substitutions _IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_FIREBASE_STORAGE_BUCKET=YOUR_FIREBASE_STORAGE_BUCKET,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
 3. Deploy the frontend image:
@@ -91,6 +92,13 @@ Firebase setup:
 - Enable Firebase Authentication
 - Enable the Anonymous sign-in provider
 - Add the frontend Cloud Run URL to Firebase Authorized Domains
+- Enable Firebase Storage and configure rules for authenticated profile photo uploads
+
+Google Maps setup:
+
+- Enable Maps JavaScript API and Places API in Google Cloud.
+- Enable route/directions billing for walking route estimates.
+- Restrict the browser API key by HTTP referrer to local dev and Cloud Run frontend domains.
 
 Auth model:
 

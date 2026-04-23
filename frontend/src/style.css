@@ -129,8 +129,8 @@ a {
 
 .icon-button,
 .avatar,
-.profile-avatar,
-.icon-action {
+.icon-action,
+.topbar-profile-button {
     display: grid;
     place-items: center;
     width: 2.8rem;
@@ -145,18 +145,115 @@ a {
     color: var(--text);
 }
 
-.avatar,
-.profile-avatar {
+.avatar {
     color: white;
     background: linear-gradient(135deg, var(--primary), var(--primary-soft));
     font-weight: 700;
     letter-spacing: 0.08em;
 }
 
-.profile-avatar {
-    width: 4.75rem;
-    height: 4.75rem;
-    font-size: 1.2rem;
+.topbar-profile-button {
+    padding: 0;
+    border: 2px solid rgba(255, 255, 255, 0.92);
+    background: linear-gradient(135deg, var(--primary), var(--primary-soft));
+    color: white;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0, 108, 70, 0.14);
+}
+
+.topbar-profile-button img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-avatar-editor {
+    position: relative;
+    display: inline-grid;
+    justify-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+}
+
+.profile-avatar-button {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 5.1rem;
+    height: 5.1rem;
+    padding: 0;
+    border: 3px solid rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
+    background:
+        radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.26), transparent 34%),
+        linear-gradient(135deg, var(--primary), var(--primary-soft));
+    box-shadow: 0 18px 30px rgba(0, 108, 70, 0.2);
+    color: white;
+    cursor: pointer;
+    overflow: visible;
+}
+
+.profile-avatar-button:disabled {
+    cursor: wait;
+    opacity: 0.8;
+}
+
+.profile-avatar-button img {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+}
+
+.profile-avatar-button--photo {
+    background: var(--surface-low);
+}
+
+.profile-avatar-initials {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.profile-avatar-edit {
+    position: absolute;
+    right: -0.18rem;
+    bottom: -0.18rem;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid white;
+    border-radius: 999px;
+    background: var(--primary-soft);
+    color: white;
+    box-shadow: 0 10px 18px rgba(0, 108, 70, 0.24);
+}
+
+.profile-avatar-edit .material-symbols-outlined {
+    font-size: 1.08rem;
+}
+
+.profile-avatar-status {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .page-content {
@@ -1066,12 +1163,22 @@ button:disabled {
 
 .carpool-map-panel {
     min-height: 20rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    padding: 0;
+    overflow: hidden;
     background:
         linear-gradient(180deg, rgba(93, 139, 179, 0.18), rgba(93, 139, 179, 0.08)),
         linear-gradient(135deg, rgba(36, 50, 71, 0.18), rgba(255, 255, 255, 0.84));
+}
+
+.google-map {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 20rem;
+    border-radius: inherit;
+    overflow: hidden;
 }
 
 .map-pin {
@@ -1083,6 +1190,24 @@ button:disabled {
     background: #35506b;
     color: white;
     box-shadow: 0 18px 28px rgba(53, 80, 107, 0.26);
+}
+
+.google-map .map-pin,
+.google-map .map-caption {
+    z-index: 1;
+}
+
+.google-map .map-caption {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    display: grid;
+    gap: 0.3rem;
+}
+
+.google-map .map-caption span {
+    color: var(--muted);
+    font-size: 0.78rem;
 }
 
 .qr-panel {

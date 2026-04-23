@@ -16,6 +16,7 @@ This file is written as a machine-readable handoff/status summary for future age
 - Identity model: each browser/device silently receives a Firebase anonymous UID.
 - Profile model: one Firestore user profile per Firebase UID.
 - Profile editing: supported in app Profile page with focused name/email editing.
+- Profile photo upload: supported in frontend via Firebase Storage when configured.
 - Payment model: mock/display-only.
 - Carpool model: mock taxi/driver data.
 - Carpool concurrency: not production-ready.
@@ -23,6 +24,7 @@ This file is written as a machine-readable handoff/status summary for future age
 - Compatibility state endpoint: still exists as `/api/state`.
 - Notification model: frontend simulation that routes predictive alerts to app pages.
 - Passport/arrival card model: frontend simulation for SGAC/MDAC status and QR pass access.
+- Google mobility model: optional frontend Google Maps Platform integration enabled by `VITE_GOOGLE_MAPS_API_KEY`.
 
 ## Major Work Completed
 
@@ -58,6 +60,9 @@ This file is written as a machine-readable handoff/status summary for future age
 30. Added predictive notification routes for congestion comparison, pre-check reminders, carbon reward, and Smart-Gate QR access.
 31. Added Rewards sustainability dashboard and SwiftFlow leaderboard.
 32. Removed profile reset demo button, review saved booking button, and taxi QR pass display.
+33. Added optional Google Places autocomplete for origin/destination location fields.
+34. Added optional Google Maps pickup map and walking route ETA for carpool pickup.
+35. Added polished Profile photo edit control for Firebase Storage uploads.
 
 ## Current Backend Architecture
 
@@ -333,6 +338,15 @@ Frontend build-time:
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_GOOGLE_MAPS_API_KEY`
+
+Google Maps behavior:
+
+- When `VITE_GOOGLE_MAPS_API_KEY` is unset, the app falls back to local datalist suggestions and static pickup-map UI.
+- When configured, Places autocomplete attaches to origin/destination fields.
+- When configured, the carpool pickup page loads an interactive Google map and walking route estimate.
+- Required Google Cloud APIs: Maps JavaScript API and Places API. Route estimates use the Maps JavaScript routing service.
 
 ## Local Run
 
@@ -380,7 +394,7 @@ Frontend build:
 gcloud builds submit frontend \
   --config frontend/cloudbuild.yaml \
   --project personal-claw-1 \
-  --substitutions _IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID
+  --substitutions _IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
 Frontend deploy:
@@ -403,6 +417,8 @@ After frontend deploy, update backend `ALLOWED_ORIGINS` to the exact frontend Cl
 - Add frontend Cloud Run URL to Firebase Authorized Domains.
 - Enable Firestore Native mode.
 - Enable Vertex AI API.
+- Enable Maps JavaScript API and Places API if location autocomplete/maps are needed.
+- Restrict the Google Maps browser API key to allowed frontend HTTP referrers.
 - Ensure backend Cloud Run service account has:
   - Cloud Datastore User
   - Vertex AI User
@@ -445,3 +461,4 @@ MVP limitations:
 - No real transport provider integrations.
 - No real payment provider integrations.
 - No real passport/identity verification.
+- Google route/map data only works when a valid browser API key is configured.

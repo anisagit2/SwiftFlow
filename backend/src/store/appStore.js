@@ -550,11 +550,15 @@ export const createAppStore = () => {
                 const email = typeof input.email === "string"
                     ? input.email.trim()
                     : state.profileDetails?.email;
+                const photoURL = typeof input.photoURL === "string"
+                    ? input.photoURL.trim()
+                    : state.profileDetails?.photoURL;
 
                 state.profileDetails = {
                     ...state.profileDetails,
                     displayName: displayName || "SwiftFlow User",
                     email: email || null,
+                    photoURL: photoURL || null,
                     memberSince: state.profileDetails?.memberSince ?? toReadableDate(currentTimestamp()),
                     primaryMode: state.routeMode,
                     preferredDestination: state.booking.destination,

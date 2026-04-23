@@ -1,4 +1,4 @@
-import { renderOptions } from "../helpers.js";
+import { renderOptions, renderPlaceField } from "../helpers.js";
 
 export const renderTrainBookingPage = (state) => `
     ${state.pendingAction === "confirm-train" ? `<section class="panel panel--subtle"><p>Confirming your RTS booking...</p></section>` : ""}
@@ -29,14 +29,8 @@ export const renderTrainBookingPage = (state) => `
                 <span class="material-symbols-outlined accent">departure_board</span>
             </div>
             <div class="selector-grid">
-                <label class="field-card">
-                    <small>From</small>
-                    <select data-field="origin">${renderOptions(state.locationOptions, state.booking.origin)}</select>
-                </label>
-                <label class="field-card">
-                    <small>To</small>
-                    <select data-field="destination">${renderOptions(state.locationOptions, state.booking.destination)}</select>
-                </label>
+                ${renderPlaceField({ label: "From", field: "origin", value: state.booking.origin, options: state.locationOptions })}
+                ${renderPlaceField({ label: "To", field: "destination", value: state.booking.destination, options: state.locationOptions })}
                 <label class="field-card">
                     <small>Departure time</small>
                     <select data-field="train-time">${renderOptions(state.trainTimeOptions, state.booking.departureTime)}</select>
