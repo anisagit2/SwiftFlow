@@ -1,11 +1,117 @@
 import { selectedCarpoolDriver } from "../../state/selectors.js";
 
+const escapeHtml = (value = "") => String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+
 const renderBookingStatus = (label, confirmed) => `
     <div class="pill ${confirmed ? "" : "pill--muted"}">
         <span class="material-symbols-outlined filled">${confirmed ? "check_circle" : "schedule"}</span>
         <span>${label}</span>
     </div>
 `;
+
+const getActivePassMode = (state) => {
+    const requestedMode = state.profileQrMode ?? "auto";
+
+    if (requestedMode === "precheckin") {
+        return "precheckin";
+    }
+
+    if (requestedMode === "rts" && state.booking?.confirmed) {
+        return "rts";
+    }
+
+    if (requestedMode === "bus" && state.busBooking?.confirmed) {
+        return "bus";
+    }
+
+    if (requestedMode === "carpool" && state.carpoolBooking?.confirmed) {
+        return "carpool";
+    }
+
+    if (state.carpoolBooking?.confirmed) {
+        return "carpool";
+    }
+
+    if (state.busBooking?.confirmed) {
+        return "bus";
+    }
+
+    if (state.booking?.confirmed) {
+        return "rts";
+    }
+
+    return "rts";
+};
+
+const buildPassDetails = (state, driver, precheckinCode) => {
+    const mode = getActivePassMode(state);
+
+    if (mode === "precheckin") {
+        return {
+            mode,
+            eyebrow: "Passport pass",
+            title: "Passport pre-check-in pass",
+            copy: "This view shows the separate pre-check-in pass for smoother passport screening before departure.",
+            icon: "badge",
+            code: precheckinCode,
+            status: state.checkInAccepted ? "Passport pre-check-in ready" : "Pre-check-in pending",
+            gate: state.routeGate,
+            window: state.routeWindow,
+            destination: state.booking.destination,
+            label: "Passport",
+        };
+    }
+
+    if (mode === "bus") {
+        return {
+            mode,
+            eyebrow: "Bus pass",
+            title: "Confirmed bus pass",
+            copy: "This pass is tied to the confirmed fallback bus booking, route, and mock payment reference.",
+            icon: "directions_bus",
+            code: state.busBooking.confirmationCode ?? "BUS-PENDING",
+            status: state.busBooking.confirmed ? state.busBooking.status : "Bus preview only",
+            gate: state.busBooking.route,
+            window: `${state.busBooking.departureTime} - ${state.busBooking.arrivalTime}`,
+            destination: state.busBooking.destination,
+            label: "Bus",
+        };
+    }
+
+    if (mode === "carpool") {
+        return {
+            mode,
+            eyebrow: "Taxi pass",
+            title: "Taxi carpool pickup pass",
+            copy: "This pass is tied to the reserved taxi pool seat, driver, pickup point, and payment reference.",
+            icon: "local_taxi",
+            code: state.carpoolBooking.confirmationCode ?? "CAR-PENDING",
+            status: state.carpoolBooking.confirmed ? state.carpoolBooking.status : "Carpool preview only",
+            gate: driver.pickupSpot,
+            window: `${driver.departureTime} departure`,
+            destination: driver.destination,
+            label: "Taxi",
+        };
+    }
+
+    return {
+        mode,
+        eyebrow: "RTS pass",
+        title: "Booked RTS QR",
+        copy: "This view shows the QR tied to the booked RTS trip and its live confirmation.",
+        icon: "train",
+        code: state.booking.confirmationCode ?? "RTS-PENDING",
+        status: state.passReady ? "Ready at checkpoint" : "Preview only",
+        gate: state.routeGate,
+        window: state.routeWindow,
+        destination: state.booking.destination,
+        label: "RTS",
+    };
+};
 
 export const renderProfilePage = (state) => {
     const driver = selectedCarpoolDriver(state);
@@ -16,9 +122,60 @@ export const renderProfilePage = (state) => {
     const hasBusBooking = Boolean(state.busBooking);
     const hasCarpoolReservation = Boolean(state.carpoolBooking?.confirmed);
     const activeTrips = profile.activeTrips ?? [state.booking.confirmed, state.busBooking.confirmed, hasCarpoolReservation].filter(Boolean).length;
-    const qrMode = state.profileQrMode ?? "rts";
     const precheckinCode = `PCHK-${state.booking.departureTime.replace(":", "")}-${state.routeGate.replace(/\s+/g, "").slice(0, 4).toUpperCase()}`;
+    const passDetails = buildPassDetails(state, driver, precheckinCode);
     const nameSource = profile.displayName ?? state.authDisplayName ?? "SwiftFlow User";
+    const hasProfile = Boolean(profile.memberSince || profile.email);
+    const draftName = draft.displayName ?? "";
+    const draftEmail = draft.email ?? "";
+    const currentHistory = [
+        state.booking?.confirmed ? {
+            bookingId: state.booking.id,
+            type: state.booking.type,
+            label: state.booking.status,
+            origin: state.booking.origin,
+            destination: state.booking.destination,
+            departureTime: state.booking.departureTime,
+            arrivalTime: state.booking.arrivalTime,
+            routeMode: "RTS Link",
+            paymentStatus: state.booking.paymentStatus,
+            confirmationCode: state.booking.confirmationCode,
+            passStatus: state.booking.passStatus,
+            recordedAt: state.booking.confirmedAt ?? state.booking.updatedAt,
+        } : null,
+        state.busBooking?.confirmed ? {
+            bookingId: state.busBooking.id,
+            type: state.busBooking.type,
+            label: state.busBooking.status,
+            origin: state.busBooking.origin,
+            destination: state.busBooking.destination,
+            departureTime: state.busBooking.departureTime,
+            arrivalTime: state.busBooking.arrivalTime,
+            routeMode: state.busBooking.route,
+            paymentStatus: state.busBooking.paymentStatus,
+            confirmationCode: state.busBooking.confirmationCode,
+            passStatus: state.busBooking.passStatus,
+            recordedAt: state.busBooking.confirmedAt ?? state.busBooking.updatedAt,
+        } : null,
+        state.carpoolBooking?.confirmed ? {
+            bookingId: "carpool-active",
+            type: "carpool",
+            label: state.carpoolBooking.status,
+            origin: state.booking.origin,
+            destination: driver.destination,
+            departureTime: driver.departureTime,
+            arrivalTime: driver.departureTime,
+            routeMode: "Taxi Carpool",
+            paymentStatus: state.carpoolBooking.paymentStatus,
+            confirmationCode: state.carpoolBooking.confirmationCode,
+            passStatus: "ready",
+            recordedAt: state.carpoolBooking.confirmedAt ?? state.carpoolBooking.updatedAt,
+        } : null,
+    ].filter(Boolean);
+    const historyTrips = [
+        ...tripHistory,
+        ...currentHistory.filter((trip) => !tripHistory.some((item) => item.bookingId === trip.bookingId)),
+    ];
     const initials = nameSource
         .split(/\s+/)
         .filter(Boolean)
@@ -34,8 +191,8 @@ export const renderProfilePage = (state) => {
                     <div class="profile-avatar">${initials}</div>
                     <div>
                         <span class="eyebrow">Commuter profile</span>
-                        <h1>${nameSource}</h1>
-                        <p>${profile.email ?? "Border commute wallet with live booking details, payment confirmations, and backup travel options in one place."}</p>
+                        <h1>${escapeHtml(nameSource)}</h1>
+                        <p>${profile.email ? escapeHtml(profile.email) : "Create a simple commuter profile, then keep your confirmed train, bus, and carpool details in one place."}</p>
                     </div>
                 </div>
 
@@ -56,52 +213,93 @@ export const renderProfilePage = (state) => {
             </div>
         </section>
 
+        <section class="panel panel--profile-editor">
+            <div class="section-head">
+                <div>
+                    <span class="eyebrow">Profile details</span>
+                    <h2>${hasProfile ? "Name and email" : "Set up your profile"}</h2>
+                </div>
+                <button class="icon-action" data-action="${state.isEditingProfile ? "cancel-profile-edit" : "edit-profile"}" aria-label="${state.isEditingProfile ? "Cancel profile edit" : "Edit profile"}">
+                    <span class="material-symbols-outlined">${state.isEditingProfile ? "close" : "person_edit"}</span>
+                </button>
+            </div>
+            ${state.isEditingProfile ? `
+                <div class="profile-edit-layout">
+                    <label class="field-card">
+                        <small>Name</small>
+                        <input data-profile-field="displayName" value="${escapeHtml(draftName)}" placeholder="Your name" autocomplete="name" />
+                    </label>
+                    <label class="field-card">
+                        <small>Email</small>
+                        <input data-profile-field="email" value="${escapeHtml(draftEmail)}" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+                    </label>
+                    <button class="primary-action" data-action="save-profile" ${state.pendingAction ? "disabled" : ""}>
+                        <span>${state.pendingAction === "save-profile" ? "Saving..." : "Save"}</span>
+                        <span class="material-symbols-outlined">save</span>
+                    </button>
+                </div>
+            ` : `
+                <div class="profile-read-grid">
+                    <div class="payment-row">
+                        <small>Name</small>
+                        <strong>${escapeHtml(profile.displayName ?? "SwiftFlow User")}</strong>
+                    </div>
+                    <div class="payment-row">
+                        <small>Email</small>
+                        <strong>${profile.email ? escapeHtml(profile.email) : "Not added"}</strong>
+                    </div>
+                </div>
+            `}
+        </section>
+
         <section class="grid-two">
             <article class="panel panel--profile-summary">
                 <div class="section-head">
                     <div>
                         <span class="eyebrow">Travel pass</span>
-                        <h2>${state.passReady ? "Priority pass ready" : "Pass waiting for check-in"}</h2>
+                        <h2>${passDetails.status}</h2>
                     </div>
-                    <span class="material-symbols-outlined accent">badge</span>
+                    <span class="material-symbols-outlined accent">${passDetails.icon}</span>
                 </div>
-                <p>${state.passReady ? `Your current border pass is aligned to ${state.routeMode}, ${state.routeGate}, and the ${state.routeWindow} travel window.` : "Accept a low-volume check-in window or confirm your preferred trip to activate the pass and gate instructions."}</p>
+                <p>${passDetails.mode === "rts" && !state.booking.confirmed ? "Confirm your preferred trip to activate a travel pass." : `${passDetails.label} pass for ${passDetails.destination}, ${passDetails.window}.`}</p>
                 <div class="profile-meta-grid">
                     <div class="payment-row">
-                        <small>Gate</small>
-                        <strong>${state.routeGate}</strong>
+                        <small>${passDetails.mode === "carpool" ? "Pickup" : "Gate / route"}</small>
+                        <strong>${passDetails.gate}</strong>
                     </div>
                     <div class="payment-row">
                         <small>Window</small>
-                        <strong>${state.routeWindow}</strong>
+                        <strong>${passDetails.window}</strong>
                     </div>
                     <div class="payment-row">
                         <small>Destination</small>
-                        <strong>${profile.preferredDestination ?? state.booking.destination}</strong>
+                        <strong>${passDetails.destination}</strong>
                     </div>
                     <div class="payment-row">
-                        <small>Credits balance</small>
-                        <strong>${state.balance.toLocaleString()}</strong>
+                        <small>Reference</small>
+                        <strong>${passDetails.code}</strong>
                     </div>
                 </div>
                 <div class="stack-actions">
                     <button class="secondary-action" data-nav="passport-checkin">Open passport pre-check-in</button>
-                    <button class="secondary-action" data-action="${state.isEditingProfile ? "cancel-profile-edit" : "edit-profile"}">
-                        <span>${state.isEditingProfile ? "Cancel profile edit" : "Edit profile"}</span>
-                        <span class="material-symbols-outlined">${state.isEditingProfile ? "close" : "edit"}</span>
+                    <button class="secondary-action" data-nav="profile">
+                        <span>Review saved bookings</span>
+                        <span class="material-symbols-outlined">confirmation_number</span>
                     </button>
                 </div>
             </article>
 
             <article class="panel qr-panel" id="qr-pass-panel">
-                <span class="eyebrow">Border pass</span>
-                <h2>${qrMode === "precheckin" ? "Passport pre-check-in pass" : "Booked RTS QR"}</h2>
-                <p>${qrMode === "precheckin" ? "This view shows the separate pre-check-in pass for smoother passport screening before departure." : "This view shows the QR tied to the booked RTS trip and its live confirmation."}</p>
+                <span class="eyebrow">${passDetails.eyebrow}</span>
+                <h2>${passDetails.title}</h2>
+                <p>${passDetails.copy}</p>
                 <div class="stack-actions">
-                    <button class="secondary-action" data-action="show-profile-pass" data-mode="rts">Show RTS QR</button>
+                    ${state.booking.confirmed ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="rts">Show RTS QR</button>` : ""}
+                    ${state.busBooking.confirmed ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="bus">Show bus pass</button>` : ""}
+                    ${state.carpoolBooking.confirmed ? `<button class="secondary-action" data-action="show-profile-pass" data-mode="carpool">Show taxi pass</button>` : ""}
                     <button class="secondary-action" data-action="show-profile-pass" data-mode="precheckin">Show pre-check-in pass</button>
                 </div>
-                ${qrMode === "precheckin" ? `
+                ${passDetails.mode === "precheckin" ? `
                     <div class="qr-sample qr-sample--barcode">
                         <div class="passport-barcode" aria-label="Passport pre-check-in barcode">
                             ${Array.from({ length: 36 }, (_, index) => `<span class="${[0,1,4,5,8,12,13,16,17,18,22,25,26,29,32,33,35].includes(index) ? "is-wide" : ""}"></span>`).join("")}
@@ -117,56 +315,14 @@ export const renderProfilePage = (state) => {
                 <div class="pass-meta-list">
                     <div class="payment-row">
                         <small>Code</small>
-                        <strong>${qrMode === "precheckin" ? precheckinCode : state.booking.confirmationCode ?? "JSIC-RTS-0284"}</strong>
+                        <strong>${passDetails.code}</strong>
                     </div>
                     <div class="payment-row">
                         <small>Status</small>
-                        <strong>${qrMode === "precheckin" ? (state.checkInAccepted ? "Passport pre-check-in ready" : "Pre-check-in pending") : (state.passReady ? "Ready at checkpoint" : "Preview only")}</strong>
+                        <strong>${passDetails.status}</strong>
                     </div>
                 </div>
             </article>
-        </section>
-
-        <section class="panel">
-            <div class="section-head">
-                <div>
-                    <span class="eyebrow">Profile details</span>
-                    <h2>One user, one editable profile</h2>
-                </div>
-                <span class="material-symbols-outlined accent">person_edit</span>
-            </div>
-            <div class="selector-grid">
-                <label class="field-card">
-                    <small>Display name</small>
-                    <input data-profile-field="displayName" value="${draft.displayName ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
-                </label>
-                <label class="field-card">
-                    <small>Email</small>
-                    <input data-profile-field="email" value="${draft.email ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
-                </label>
-                <label class="field-card">
-                    <small>Preferred destination</small>
-                    <input data-profile-field="preferredDestination" value="${draft.preferredDestination ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
-                </label>
-                <label class="field-card">
-                    <small>Primary mode</small>
-                    <input data-profile-field="primaryMode" value="${draft.primaryMode ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
-                </label>
-                <label class="field-card">
-                    <small>Home hub</small>
-                    <input data-profile-field="homeHub" value="${draft.homeHub ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
-                </label>
-                <label class="field-card">
-                    <small>Bio</small>
-                    <input data-profile-field="bio" value="${draft.bio ?? ""}" ${state.isEditingProfile ? "" : "disabled"} />
-                </label>
-            </div>
-            <div class="stack-actions">
-                <button class="primary-action" data-action="save-profile" ${state.isEditingProfile ? "" : "disabled"}>
-                    <span>${profile.memberSince ? "Save profile changes" : "Create profile"}</span>
-                    <span class="material-symbols-outlined">save</span>
-                </button>
-            </div>
         </section>
 
         <section class="panel">
@@ -276,14 +432,14 @@ export const renderProfilePage = (state) => {
             <div class="section-head">
                 <div>
                     <span class="eyebrow">Trip history</span>
-                    <h2>Confirmed train journeys</h2>
+                    <h2>Confirmed trips</h2>
                 </div>
                 <span class="material-symbols-outlined accent">history</span>
             </div>
-            ${tripHistory.length ? `
+            ${historyTrips.length ? `
                 <div class="profile-bookings-grid">
-                    ${tripHistory.map((trip) => `
-                        <article class="profile-booking-card profile-booking-card--train">
+                    ${historyTrips.map((trip) => `
+                        <article class="profile-booking-card ${trip.type === "bus" ? "profile-booking-card--bus" : (trip.type === "carpool" ? "profile-booking-card--carpool" : "profile-booking-card--train")}">
                             <div class="profile-booking-head">
                                 <div>
                                     ${renderBookingStatus(trip.label ?? "RTS Confirmed", trip.passStatus === "ready")}
@@ -314,7 +470,7 @@ export const renderProfilePage = (state) => {
                     `).join("")}
                 </div>
             ` : `
-                <p>No confirmed train journeys yet. Once you confirm an RTS booking, it will appear here automatically.</p>
+                <p>No confirmed trips yet. Once you confirm an RTS or bus booking, it will appear here automatically.</p>
             `}
         </section>
 
@@ -358,12 +514,6 @@ export const renderProfilePage = (state) => {
                             <p>${state.passReady ? "Ready for the next scan point." : "Activate with check-in or trip confirmation."}</p>
                         </div>
                     </div>
-                </div>
-                <div class="stack-actions">
-                    <button class="secondary-action" data-action="reset-state" ${state.pendingAction ? "disabled" : ""}>
-                        <span>${state.pendingAction === "reset-state" ? "Resetting demo data..." : "Reset Demo Data"}</span>
-                        <span class="material-symbols-outlined">restart_alt</span>
-                    </button>
                 </div>
             </article>
         </section>

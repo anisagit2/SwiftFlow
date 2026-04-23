@@ -6,10 +6,14 @@ import { syncDerivedTimes, formatCountdown } from "../utils/time.js";
 import { renderLayout } from "../views/layout.js";
 import { renderPage } from "../views/renderPage.js";
 
+const buildConfirmationCode = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+const currentTimestamp = () => new Date().toISOString();
+
 export const createApp = (root) => {
     const state = Object.assign(createInitialState(), {
         isBootstrapping: true,
         isAuthenticated: false,
+        isBackendConnected: false,
         authDisplayName: "Guest",
         authInitials: "SF",
         pendingAction: "",
@@ -38,6 +42,7 @@ export const createApp = (root) => {
             showAlertRoutes: state.showAlertRoutes,
             profileQrMode: state.profileQrMode,
             isAuthenticated: state.isAuthenticated,
+            isBackendConnected: state.isBackendConnected,
             authDisplayName: state.authDisplayName,
             authInitials: state.authInitials,
             isEditingProfile: state.isEditingProfile,
@@ -52,16 +57,111 @@ export const createApp = (root) => {
             state.profileDraft = {
                 displayName: state.profileDetails?.displayName ?? "",
                 email: state.profileDetails?.email ?? "",
-                preferredDestination: state.profileDetails?.preferredDestination ?? state.booking?.destination ?? "",
-                primaryMode: state.profileDetails?.primaryMode ?? state.routeMode ?? "",
-                homeHub: state.profileDetails?.homeHub ?? "",
-                bio: state.profileDetails?.bio ?? "",
             };
         }
     };
 
     const render = () => {
         root.innerHTML = renderLayout(state, renderPage(state));
+    };
+
+    const refreshProfileSummary = () => {
+        state.profileDetails = {
+            ...state.profileDetails,
+            activeTrips: [state.booking.confirmed, state.busBooking.confirmed, state.carpoolBooking.confirmed].filter(Boolean).length,
+            primaryMode: state.routeMode,
+            preferredDestination: state.booking.destination,
+            latestDepartureTime: state.booking.departureTime,
+            latestConfirmationCode: state.booking.confirmationCode,
+            passReady: state.passReady,
+        };
+    };
+
+    const addTripHistory = (booking) => {
+        const entry = {
+            id: `${booking.id}-${booking.confirmedAt ?? booking.updatedAt ?? currentTimestamp()}`,
+            bookingId: booking.id,
+            type: booking.type,
+            label: booking.status,
+            origin: booking.origin,
+            destination: booking.destination,
+            departureTime: booking.departureTime,
+            arrivalTime: booking.arrivalTime,
+            routeMode: state.routeMode,
+            routeGate: state.routeGate,
+            paymentStatus: booking.paymentStatus,
+            confirmationCode: booking.confirmationCode,
+            passStatus: booking.passStatus,
+            recordedAt: booking.confirmedAt ?? booking.updatedAt ?? currentTimestamp(),
+        };
+
+        state.tripHistory = [entry, ...(state.tripHistory ?? []).filter((item) => item.bookingId !== booking.id)].slice(0, 5);
+    };
+
+    const confirmTrainLocally = () => {
+        state.booking.confirmed = true;
+        state.booking.status = "RTS Confirmed";
+        state.booking.reservationStatus = "confirmed";
+        state.booking.passStatus = "ready";
+        state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
+        state.booking.confirmationCode = state.booking.confirmationCode ?? buildConfirmationCode("RTS");
+        state.booking.confirmedAt = state.booking.confirmedAt ?? currentTimestamp();
+        state.booking.updatedAt = currentTimestamp();
+        state.passReady = true;
+        state.routeMode = "RTS Link";
+        state.routeWindow = `${state.booking.departureTime} - ${state.booking.arrivalTime}`;
+        addTripHistory(state.booking);
+        refreshProfileSummary();
+    };
+
+    const confirmBusLocally = () => {
+        state.busBooking.confirmed = true;
+        state.busBooking.status = "Bus Confirmed";
+        state.busBooking.reservationStatus = "confirmed";
+        state.busBooking.passStatus = "ready";
+        state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
+        state.busBooking.confirmationCode = state.busBooking.confirmationCode ?? buildConfirmationCode("BUS");
+        state.busBooking.confirmedAt = state.busBooking.confirmedAt ?? currentTimestamp();
+        state.busBooking.updatedAt = currentTimestamp();
+        state.routeMode = state.busBooking.route;
+        state.profileQrMode = "bus";
+        addTripHistory(state.busBooking);
+        refreshProfileSummary();
+    };
+
+    const confirmCarpoolLocally = () => {
+        const driver = state.carpoolDrivers.find((item) => item.id === state.selectedCarpoolDriverId) ?? state.carpoolDrivers[0];
+        const seatCount = Number(driver.seats.match(/\d+/)?.[0] ?? 0);
+
+        if (!state.carpoolBooking.confirmed || state.carpoolBooking.driverId !== driver.id) {
+            driver.seats = `${Math.max(0, seatCount - 1)} seat${seatCount - 1 === 1 ? "" : "s"} left`;
+            state.carpoolBooking.confirmationCode = buildConfirmationCode("CAR");
+        }
+
+        driver.reservationStatus = "Reserved";
+        state.carpoolBooking.confirmed = true;
+        state.carpoolBooking.driverId = driver.id;
+        state.carpoolBooking.status = "Carpool Reserved";
+        state.carpoolBooking.paymentStatus = `Charge queued for ${driver.paymentMethod}`;
+        state.carpoolBooking.confirmedAt = state.carpoolBooking.confirmedAt ?? currentTimestamp();
+        state.carpoolBooking.updatedAt = currentTimestamp();
+        state.routeMode = "Taxi Carpool";
+        state.profileQrMode = "carpool";
+        refreshProfileSummary();
+    };
+
+    const saveProfileLocally = () => {
+        state.profileDetails = {
+            ...state.profileDetails,
+            displayName: state.profileDraft?.displayName?.trim() || "SwiftFlow User",
+            email: state.profileDraft?.email?.trim() || null,
+            memberSince: state.profileDetails?.memberSince ?? new Date().toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+            }),
+        };
+        refreshProfileSummary();
     };
 
     const applyAuthSession = (session) => {
@@ -84,6 +184,7 @@ export const createApp = (root) => {
     const syncStateFromServer = async (options = {}) => {
         const serverState = await apiClient.getState();
         applyServerState(serverState, options);
+        state.isBackendConnected = true;
         syncDerivedTimes(state);
     };
 
@@ -92,6 +193,7 @@ export const createApp = (root) => {
             successMessage = "",
             nextTab,
             preserveTab = true,
+            syncAfter = true,
         } = options;
 
         state.pendingAction = pendingAction;
@@ -101,7 +203,9 @@ export const createApp = (root) => {
 
         try {
             await task();
-            await syncStateFromServer({ preserveTab });
+            if (syncAfter) {
+                await syncStateFromServer({ preserveTab });
+            }
 
             if (nextTab) {
                 state.activeTab = nextTab;
@@ -162,10 +266,6 @@ export const createApp = (root) => {
             state.profileDraft = {
                 displayName: state.profileDetails?.displayName ?? "",
                 email: state.profileDetails?.email ?? "",
-                preferredDestination: state.profileDetails?.preferredDestination ?? state.booking?.destination ?? "",
-                primaryMode: state.profileDetails?.primaryMode ?? state.routeMode ?? "",
-                homeHub: state.profileDetails?.homeHub ?? "",
-                bio: state.profileDetails?.bio ?? "",
             };
             state.noticeMessage = "";
             state.errorMessage = "";
@@ -178,10 +278,6 @@ export const createApp = (root) => {
             state.profileDraft = {
                 displayName: state.profileDetails?.displayName ?? "",
                 email: state.profileDetails?.email ?? "",
-                preferredDestination: state.profileDetails?.preferredDestination ?? state.booking?.destination ?? "",
-                primaryMode: state.profileDetails?.primaryMode ?? state.routeMode ?? "",
-                homeHub: state.profileDetails?.homeHub ?? "",
-                bio: state.profileDetails?.bio ?? "",
             };
             state.noticeMessage = "";
             state.errorMessage = "";
@@ -190,11 +286,20 @@ export const createApp = (root) => {
         }
 
         if (action === "save-profile") {
-            await runRequest("save-profile", () => apiClient.updateProfile(state.profileDraft ?? {}), {
-                successMessage: "Profile saved.",
+            state.isEditingProfile = true;
+            const useBackend = state.isAuthenticated && state.isBackendConnected;
+            const saveProfile = useBackend ? () => apiClient.updateProfile({
+                displayName: state.profileDraft?.displayName ?? "",
+                email: state.profileDraft?.email ?? "",
+            }) : saveProfileLocally;
+
+            await runRequest("save-profile", saveProfile, {
+                successMessage: state.profileDetails?.memberSince ? "Profile saved." : "Profile created.",
                 nextTab: "profile",
+                syncAfter: useBackend,
             });
             state.isEditingProfile = false;
+            render();
             return;
         }
 
@@ -231,6 +336,9 @@ export const createApp = (root) => {
             state.noticeMessage = "Driver selected.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest("select-driver", () => apiClient.selectCarpoolDriver(driver), {
                 successMessage: "Selected carpool driver updated.",
             });
@@ -238,38 +346,77 @@ export const createApp = (root) => {
         }
 
         if (action === "confirm-train") {
-            await runRequest("confirm-train", () => apiClient.confirmTrainBooking(), {
+            const useBackend = state.isAuthenticated && state.isBackendConnected;
+            state.profileQrMode = "rts";
+            state.activeTab = "profile";
+            state.noticeMessage = "Confirming RTS booking...";
+            state.errorMessage = "";
+            render();
+            await runRequest("confirm-train", useBackend ? () => apiClient.confirmTrainBooking() : confirmTrainLocally, {
                 successMessage: "RTS booking confirmed.",
-                nextTab: "booking",
+                nextTab: "profile",
+                syncAfter: useBackend,
             });
             return;
         }
 
         if (action === "confirm-bus") {
-            await runRequest("confirm-bus", () => apiClient.confirmBusBooking(), {
+            const useBackend = state.isAuthenticated && state.isBackendConnected;
+            state.profileQrMode = "bus";
+            state.activeTab = "profile";
+            state.noticeMessage = "Confirming bus booking...";
+            state.errorMessage = "";
+            render();
+            await runRequest("confirm-bus", useBackend ? () => apiClient.confirmBusBooking() : confirmBusLocally, {
                 successMessage: "Bus booking confirmed.",
-                nextTab: "bus-booking",
+                nextTab: "profile",
+                syncAfter: useBackend,
             });
             return;
         }
 
         if (action === "confirm-carpool") {
             state.activeTab = "carpool-pickup";
+            state.profileQrMode = "carpool";
             state.noticeMessage = "Opening reserved pickup route...";
             state.errorMessage = "";
             render();
-            await runRequest("confirm-carpool", () => apiClient.confirmCarpoolBooking(), {
+            const useBackend = state.isAuthenticated && state.isBackendConnected;
+            await runRequest("confirm-carpool", useBackend ? () => apiClient.confirmCarpoolBooking() : confirmCarpoolLocally, {
                 successMessage: "Carpool seat reserved.",
                 nextTab: "carpool-pickup",
+                syncAfter: useBackend,
             });
             return;
         }
 
         if (action === "reset-state") {
-            await runRequest("reset-state", () => apiClient.resetState(), {
+            const useBackend = state.isAuthenticated && state.isBackendConnected;
+            const resetState = useBackend
+                ? () => apiClient.resetState()
+                : () => {
+                    Object.assign(state, createInitialState(), {
+                        isBootstrapping: false,
+                        isAuthenticated: false,
+                        isBackendConnected: false,
+                        authDisplayName: "Guest",
+                        authInitials: "SF",
+                        pendingAction: "",
+                        errorMessage: "",
+                        noticeMessage: "",
+                        selectedRewardId: "vep-offset",
+                        showAlertRoutes: false,
+                        profileQrMode: "rts",
+                        isEditingProfile: false,
+                        profileDraft: null,
+                    });
+                };
+
+            await runRequest("reset-state", resetState, {
                 successMessage: "Demo data reset. You can replay the booking flow now.",
                 nextTab: "explore",
                 preserveTab: false,
+                syncAfter: useBackend,
             });
         }
     };
@@ -278,12 +425,23 @@ export const createApp = (root) => {
         if (field === "destination") {
             if (state.activeTab === "bus-booking") {
                 state.busBooking.destination = value;
+                if (state.busBooking.confirmed) {
+                    state.busBooking.updatedAt = currentTimestamp();
+                    state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
+                }
             } else {
                 state.booking.destination = value;
+                if (state.booking.confirmed) {
+                    state.booking.updatedAt = currentTimestamp();
+                    state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
+                }
             }
             state.noticeMessage = "Destination updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
 
             const updateDestination = state.activeTab === "bus-booking"
                 ? () => apiClient.updateBusBooking({ destination: value })
@@ -297,9 +455,15 @@ export const createApp = (root) => {
 
         if (field === "origin") {
             state.booking.origin = value;
+            if (state.booking.confirmed) {
+                state.booking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "Origin updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateTrainBooking({ origin: value }), {
                 successMessage: "Origin updated.",
             });
@@ -308,9 +472,15 @@ export const createApp = (root) => {
 
         if (field === "bus-origin") {
             state.busBooking.origin = value;
+            if (state.busBooking.confirmed) {
+                state.busBooking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "Bus origin updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateBusBooking({ origin: value }), {
                 successMessage: "Bus origin updated.",
             });
@@ -320,9 +490,15 @@ export const createApp = (root) => {
         if (field === "train-time") {
             state.booking.departureTime = value;
             syncDerivedTimes(state);
+            if (state.booking.confirmed) {
+                state.booking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "RTS departure time updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateTrainBooking({ departureTime: value }), {
                 successMessage: "RTS departure time updated.",
             });
@@ -332,9 +508,15 @@ export const createApp = (root) => {
         if (field === "bus-time") {
             state.busBooking.departureTime = value;
             syncDerivedTimes(state);
+            if (state.busBooking.confirmed) {
+                state.busBooking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "Bus departure time updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateBusBooking({ departureTime: value }), {
                 successMessage: "Bus departure time updated.",
             });
@@ -343,9 +525,16 @@ export const createApp = (root) => {
 
         if (field === "train-payment") {
             state.booking.paymentMethod = value;
+            if (state.booking.confirmed) {
+                state.booking.paymentStatus = `Charged to ${value}`;
+                state.booking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "RTS payment method updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateTrainBooking({ paymentMethod: value }), {
                 successMessage: "RTS payment method updated.",
             });
@@ -354,9 +543,16 @@ export const createApp = (root) => {
 
         if (field === "bus-payment") {
             state.busBooking.paymentMethod = value;
+            if (state.busBooking.confirmed) {
+                state.busBooking.paymentStatus = `Charged to ${value}`;
+                state.busBooking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "Bus payment method updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateBusBooking({ paymentMethod: value }), {
                 successMessage: "Bus payment method updated.",
             });
@@ -368,9 +564,16 @@ export const createApp = (root) => {
             if (selectedDriver) {
                 selectedDriver.paymentMethod = value;
             }
+            if (state.carpoolBooking.confirmed) {
+                state.carpoolBooking.paymentStatus = `Charge queued for ${value}`;
+                state.carpoolBooking.updatedAt = currentTimestamp();
+            }
             state.noticeMessage = "Carpool payment method updated.";
             state.errorMessage = "";
             render();
+            if (!state.isAuthenticated || !state.isBackendConnected) {
+                return;
+            }
             await runRequest(field, () => apiClient.updateCarpoolPayment(value), {
                 successMessage: "Carpool payment method updated.",
             });

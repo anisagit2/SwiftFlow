@@ -30,6 +30,48 @@ const updateRouteWindow = (state) => {
 };
 
 const buildConfirmationCode = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+const currentTimestamp = () => new Date().toISOString();
+
+const toReadableDate = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    return new Date(value).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+    });
+};
+
+const buildTripHistoryEntry = (booking, state) => ({
+    id: `${booking.id}-${booking.confirmedAt ?? booking.updatedAt ?? currentTimestamp()}`,
+    bookingId: booking.id,
+    type: booking.type,
+    label: booking.status,
+    origin: booking.origin,
+    destination: booking.destination,
+    departureTime: booking.departureTime,
+    arrivalTime: booking.arrivalTime,
+    routeMode: state.routeMode,
+    routeGate: state.routeGate,
+    paymentStatus: booking.paymentStatus,
+    confirmationCode: booking.confirmationCode,
+    passStatus: booking.passStatus,
+    recordedAt: booking.confirmedAt ?? booking.updatedAt ?? currentTimestamp(),
+});
+
+const updateProfileSummary = (state) => {
+    state.profileDetails = {
+        ...state.profileDetails,
+        activeTrips: [state.booking.confirmed, state.busBooking.confirmed, state.carpoolBooking.confirmed].filter(Boolean).length,
+        primaryMode: state.profileDetails?.primaryMode ?? state.routeMode,
+        preferredDestination: state.profileDetails?.preferredDestination ?? state.booking.destination,
+        latestDepartureTime: state.booking.departureTime,
+        latestConfirmationCode: state.booking.confirmationCode,
+        passReady: state.passReady,
+    };
+};
 
 const decrementSeatsLabel = (seatsLabel) => {
     const match = seatsLabel.match(/(\d+)/);
@@ -108,6 +150,9 @@ const buildSnapshot = (state) => ({
         destination: state.booking.destination,
         departureTime: state.booking.departureTime,
         passReady: state.passReady,
+        details: state.profileDetails,
+        tripHistory: state.tripHistory,
+        checkIn: state.checkInDetails,
     },
     options: {
         locations: state.locationOptions,
@@ -187,7 +232,7 @@ export const createAppStore = () => {
             return deepClone(state);
         },
 
-        updateTrainBooking(input) {
+        updateTrainBooking(_user, input = {}) {
             return mutateState((state) => {
                 const { origin, destination, departureTime, paymentMethod } = input;
 
@@ -214,8 +259,14 @@ export const createAppStore = () => {
 
                 if (paymentMethod) {
                     state.booking.paymentMethod = paymentMethod;
+                }
+
+                if (origin || destination || departureTime || paymentMethod) {
+                    state.booking.updatedAt = currentTimestamp();
                     if (state.booking.confirmed) {
-                        state.booking.paymentStatus = `Charged to ${paymentMethod}`;
+                        state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
+                        state.booking.passStatus = "ready";
+                        state.booking.reservationStatus = "confirmed";
                     }
                 }
 
@@ -224,7 +275,7 @@ export const createAppStore = () => {
             });
         },
 
-        updateBusBooking(input) {
+        updateBusBooking(_user, input = {}) {
             return mutateState((state) => {
                 const { origin, destination, departureTime, paymentMethod } = input;
 
@@ -250,8 +301,14 @@ export const createAppStore = () => {
 
                 if (paymentMethod) {
                     state.busBooking.paymentMethod = paymentMethod;
+                }
+
+                if (origin || destination || departureTime || paymentMethod) {
+                    state.busBooking.updatedAt = currentTimestamp();
                     if (state.busBooking.confirmed) {
-                        state.busBooking.paymentStatus = `Charged to ${paymentMethod}`;
+                        state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
+                        state.busBooking.passStatus = "ready";
+                        state.busBooking.reservationStatus = "confirmed";
                     }
                 }
 
@@ -272,7 +329,7 @@ export const createAppStore = () => {
             });
         },
 
-        selectCarpoolDriver(driverId) {
+        selectCarpoolDriver(_user, driverId) {
             return mutateState((state) => {
                 const driver = state.carpoolDrivers.find((item) => item.id === driverId);
 
@@ -292,13 +349,14 @@ export const createAppStore = () => {
             });
         },
 
-        updateCarpoolPayment(paymentMethod) {
+        updateCarpoolPayment(_user, paymentMethod) {
             return mutateState((state) => {
                 ensureOption(state.carpoolPaymentOptions, paymentMethod, "paymentMethod");
                 selectedCarpoolDriver(state).paymentMethod = paymentMethod;
 
                 if (state.carpoolBooking.confirmed) {
                     state.carpoolBooking.paymentStatus = `Charge queued for ${paymentMethod}`;
+                    state.carpoolBooking.updatedAt = currentTimestamp();
                 }
 
                 return deepClone({
@@ -313,15 +371,20 @@ export const createAppStore = () => {
 
         confirmTrainBooking() {
             return mutateState((state) => {
-                if (!state.booking.confirmed) {
-                    state.booking.confirmed = true;
-                    state.booking.status = "RTS Confirmed";
-                    state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
-                    state.booking.confirmationCode = buildConfirmationCode("RTS");
-                    state.passReady = true;
-                    state.routeMode = "RTS Link";
-                }
+                state.booking.confirmed = true;
+                state.booking.status = "RTS Confirmed";
+                state.booking.reservationStatus = "confirmed";
+                state.booking.passStatus = "ready";
+                state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
+                state.booking.confirmationCode = state.booking.confirmationCode ?? buildConfirmationCode("RTS");
+                state.booking.confirmedAt = state.booking.confirmedAt ?? currentTimestamp();
+                state.booking.updatedAt = currentTimestamp();
+                state.passReady = true;
+                state.routeMode = "RTS Link";
 
+                const historyEntry = buildTripHistoryEntry(state.booking, state);
+                state.tripHistory = [historyEntry, ...(state.tripHistory ?? []).filter((entry) => entry.bookingId !== state.booking.id)].slice(0, 5);
+                updateProfileSummary(state);
                 state.activeTab = "booking";
                 updateRouteWindow(state);
                 return deepClone(state.booking);
@@ -330,14 +393,19 @@ export const createAppStore = () => {
 
         confirmBusBooking() {
             return mutateState((state) => {
-                if (!state.busBooking.confirmed) {
-                    state.busBooking.confirmed = true;
-                    state.busBooking.status = "Bus Confirmed";
-                    state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
-                    state.busBooking.confirmationCode = buildConfirmationCode("BUS");
-                    state.routeMode = state.busBooking.route;
-                }
+                state.busBooking.confirmed = true;
+                state.busBooking.status = "Bus Confirmed";
+                state.busBooking.reservationStatus = "confirmed";
+                state.busBooking.passStatus = "ready";
+                state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
+                state.busBooking.confirmationCode = state.busBooking.confirmationCode ?? buildConfirmationCode("BUS");
+                state.busBooking.confirmedAt = state.busBooking.confirmedAt ?? currentTimestamp();
+                state.busBooking.updatedAt = currentTimestamp();
+                state.routeMode = state.busBooking.route;
 
+                const historyEntry = buildTripHistoryEntry(state.busBooking, state);
+                state.tripHistory = [historyEntry, ...(state.tripHistory ?? []).filter((entry) => entry.bookingId !== state.busBooking.id)].slice(0, 5);
+                updateProfileSummary(state);
                 state.activeTab = "bus-booking";
                 return deepClone(state.busBooking);
             });
@@ -351,16 +419,18 @@ export const createAppStore = () => {
                     if (driver.reservationStatus !== "Reserved") {
                         driver.seats = decrementSeatsLabel(driver.seats);
                     }
-
-                    driver.reservationStatus = "Reserved";
-                    state.carpoolBooking.confirmed = true;
-                    state.carpoolBooking.driverId = driver.id;
-                    state.carpoolBooking.status = "Carpool Reserved";
-                    state.carpoolBooking.paymentStatus = `Charge queued for ${driver.paymentMethod}`;
                     state.carpoolBooking.confirmationCode = buildConfirmationCode("CAR");
-                    state.routeMode = "Taxi Carpool";
                 }
 
+                driver.reservationStatus = "Reserved";
+                state.carpoolBooking.confirmed = true;
+                state.carpoolBooking.driverId = driver.id;
+                state.carpoolBooking.status = "Carpool Reserved";
+                state.carpoolBooking.paymentStatus = `Charge queued for ${driver.paymentMethod}`;
+                state.carpoolBooking.confirmedAt = state.carpoolBooking.confirmedAt ?? currentTimestamp();
+                state.carpoolBooking.updatedAt = currentTimestamp();
+                state.routeMode = "Taxi Carpool";
+                updateProfileSummary(state);
                 state.activeTab = "carpool-booking";
 
                 return deepClone({
@@ -434,7 +504,7 @@ export const createAppStore = () => {
             });
         },
 
-        redeemReward(rewardId) {
+        redeemReward(_user, rewardId) {
             return mutateState((state) => {
                 const reward = state.rewards.find((item) => item.id === rewardId);
 
@@ -466,6 +536,35 @@ export const createAppStore = () => {
 
         getProfile() {
             return deepClone(buildSnapshot(readState()).profile);
+        },
+
+        getTripHistory() {
+            return deepClone(readState().tripHistory ?? []);
+        },
+
+        updateProfile(_user, input = {}) {
+            return mutateState((state) => {
+                const displayName = typeof input.displayName === "string"
+                    ? input.displayName.trim()
+                    : state.profileDetails?.displayName;
+                const email = typeof input.email === "string"
+                    ? input.email.trim()
+                    : state.profileDetails?.email;
+
+                state.profileDetails = {
+                    ...state.profileDetails,
+                    displayName: displayName || "SwiftFlow User",
+                    email: email || null,
+                    memberSince: state.profileDetails?.memberSince ?? toReadableDate(currentTimestamp()),
+                    primaryMode: state.routeMode,
+                    preferredDestination: state.booking.destination,
+                };
+                updateProfileSummary(state);
+
+                return deepClone({
+                    details: state.profileDetails,
+                });
+            });
         },
     };
 };

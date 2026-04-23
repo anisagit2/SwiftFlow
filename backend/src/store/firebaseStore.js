@@ -791,17 +791,18 @@ export const createAppStore = () => {
         async confirmTrainBooking(user) {
             return persistTrainBookingState(user, (state) => {
                 if (!state.booking.confirmed) {
-                    state.booking.confirmed = true;
-                    state.booking.status = "RTS Confirmed";
-                    state.booking.reservationStatus = "confirmed";
-                    state.booking.passStatus = "ready";
-                    state.booking.paymentStatus = buildMockPaymentStatus(state.booking.paymentMethod);
                     state.booking.confirmationCode = buildConfirmationCode("RTS");
                     state.booking.confirmedAt = currentTimestamp();
-                    state.booking.updatedAt = currentTimestamp();
-                    state.passReady = true;
-                    state.routeMode = "RTS Link";
                 }
+
+                state.booking.confirmed = true;
+                state.booking.status = "RTS Confirmed";
+                state.booking.reservationStatus = "confirmed";
+                state.booking.passStatus = "ready";
+                state.booking.paymentStatus = buildMockPaymentStatus(state.booking.paymentMethod);
+                state.booking.updatedAt = currentTimestamp();
+                state.passReady = true;
+                state.routeMode = "RTS Link";
 
                 const historyEntry = buildTripHistoryEntry(decorateTrainBooking(state.booking), state);
                 state.tripHistory = [historyEntry, ...(state.tripHistory ?? []).filter((entry) => entry.bookingId !== state.booking.id)].slice(0, 5);
@@ -825,16 +826,17 @@ export const createAppStore = () => {
         async confirmBusBooking(user) {
             return persistBusBookingState(user, (state) => {
                 if (!state.busBooking.confirmed) {
-                    state.busBooking.confirmed = true;
-                    state.busBooking.status = "Bus Confirmed";
-                    state.busBooking.reservationStatus = "confirmed";
-                    state.busBooking.passStatus = "ready";
-                    state.busBooking.paymentStatus = buildMockPaymentStatus(state.busBooking.paymentMethod);
                     state.busBooking.confirmationCode = buildConfirmationCode("BUS");
                     state.busBooking.confirmedAt = currentTimestamp();
-                    state.busBooking.updatedAt = currentTimestamp();
-                    state.routeMode = state.busBooking.route;
                 }
+
+                state.busBooking.confirmed = true;
+                state.busBooking.status = "Bus Confirmed";
+                state.busBooking.reservationStatus = "confirmed";
+                state.busBooking.passStatus = "ready";
+                state.busBooking.paymentStatus = buildMockPaymentStatus(state.busBooking.paymentMethod);
+                state.busBooking.updatedAt = currentTimestamp();
+                state.routeMode = state.busBooking.route;
 
                 const historyEntry = buildTripHistoryEntry(decorateBusBooking(state.busBooking), state);
                 state.tripHistory = [historyEntry, ...(state.tripHistory ?? []).filter((entry) => entry.bookingId !== state.busBooking.id)].slice(0, 5);
@@ -863,14 +865,16 @@ export const createAppStore = () => {
                         driver.seats = decrementSeatsLabel(driver.seats);
                     }
 
-                    driver.reservationStatus = "Reserved";
-                    state.carpoolBooking.confirmed = true;
-                    state.carpoolBooking.driverId = driver.id;
-                    state.carpoolBooking.status = "Carpool Reserved";
-                    state.carpoolBooking.paymentStatus = buildMockQueuedPaymentStatus(driver.paymentMethod);
                     state.carpoolBooking.confirmationCode = buildConfirmationCode("CAR");
-                    state.routeMode = "Taxi Carpool";
                 }
+
+                driver.reservationStatus = "Reserved";
+                state.carpoolBooking.confirmed = true;
+                state.carpoolBooking.driverId = driver.id;
+                state.carpoolBooking.status = "Carpool Reserved";
+                state.carpoolBooking.paymentStatus = buildMockQueuedPaymentStatus(driver.paymentMethod);
+                state.carpoolBooking.updatedAt = currentTimestamp();
+                state.routeMode = "Taxi Carpool";
 
                 state.activeTab = "carpool-booking";
                 return clone(buildCarpoolBookingPayload(state));

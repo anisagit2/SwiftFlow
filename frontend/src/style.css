@@ -220,8 +220,33 @@ button {
     background: linear-gradient(135deg, #23356f 0%, #4c56af 55%, #8da7ff 100%);
 }
 
+.hero-card--rewards .pill {
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.28);
+}
+
 .hero-card--profile {
-    background: linear-gradient(180deg, rgba(241, 244, 242, 0.88), rgba(255, 255, 255, 0.98));
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 248, 244, 0.96));
+}
+
+.hero-card--profile h1,
+.hero-card--profile p {
+    color: var(--text);
+}
+
+.hero-card--profile .eyebrow,
+.hero-card--profile .metric-card small {
+    color: #526158;
+}
+
+.hero-card--profile .metric-card {
+    background: rgba(0, 108, 70, 0.08);
+    border: 1px solid rgba(0, 108, 70, 0.12);
+}
+
+.hero-card--profile .metric-card strong {
+    color: var(--primary);
 }
 
 .profile-hero {
@@ -487,7 +512,8 @@ button:disabled {
     text-transform: uppercase;
 }
 
-.field-card select {
+.field-card select,
+.field-card input {
     width: 100%;
     border: 0;
     outline: none;
@@ -495,6 +521,27 @@ button:disabled {
     color: var(--text);
     font-size: 1rem;
     font-weight: 600;
+}
+
+.field-card input::placeholder {
+    color: rgba(82, 97, 88, 0.62);
+}
+
+.profile-edit-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.85rem;
+}
+
+.profile-read-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.panel--profile-editor {
+    background: linear-gradient(160deg, rgba(0, 108, 70, 0.08), rgba(255, 255, 255, 0.98));
 }
 
 .trip-summary__block,
@@ -1268,6 +1315,8 @@ button:disabled {
     .rewards-grid,
     .route-suggestions-grid,
     .profile-bookings-grid,
+    .profile-edit-layout,
+    .profile-read-grid,
     .trip-summary,
     .ticket-grid,
     .selector-grid,

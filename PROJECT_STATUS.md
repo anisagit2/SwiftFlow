@@ -335,7 +335,7 @@ gcloud run deploy swiftflow-backend \
   --region us-central1 \
   --project personal-claw-1 \
   --allow-unauthenticated \
-  --set-env-vars GOOGLE_CLOUD_PROJECT=personal-claw-1,FIREBASE_PROJECT_ID=personal-claw-1,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=https://YOUR_FRONTEND_URL
+  --set-env-vars GOOGLE_CLOUD_PROJECT=personal-claw-1,FIREBASE_PROJECT_ID=personal-claw-1,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS="https://swiftflow-frontend-840535137820.us-central1.run.app"
 ```
 
 Frontend build:
