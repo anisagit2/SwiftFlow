@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "gcloud builds submit . --config cloudbuild.yaml --project ${GOOGLE_CLOUD_PROJECT:-personal-claw-1} --substitutions _IMAGE=${FRONTEND_IMAGE:-gcr.io/personal-claw-1/swiftflow-frontend},_VITE_API_BASE_URL=${VITE_API_BASE_URL},_VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY},_VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN},_VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID:-personal-claw-1},_VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID} && gcloud run deploy swiftflow-frontend --image ${FRONTEND_IMAGE:-gcr.io/personal-claw-1/swiftflow-frontend} --region ${GOOGLE_CLOUD_REGION:-us-central1} --allow-unauthenticated --project ${GOOGLE_CLOUD_PROJECT:-personal-claw-1} --port 80"
+    "deploy": "gcloud builds submit . --config cloudbuild.yaml --project ${GOOGLE_CLOUD_PROJECT:-swiftflow-494302} --substitutions _IMAGE=${FRONTEND_IMAGE:-gcr.io/swiftflow-494302/swiftflow-frontend},_VITE_API_BASE_URL=${VITE_API_BASE_URL},_VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY},_VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN},_VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID:-swiftflow-72f6c},_VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID},_VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET:-swiftflow-72f6c.firebasestorage.app},_VITE_GOOGLE_MAPS_API_KEY=${VITE_GOOGLE_MAPS_API_KEY} && gcloud run deploy swiftflow-frontend --image ${FRONTEND_IMAGE:-gcr.io/swiftflow-494302/swiftflow-frontend} --region ${GOOGLE_CLOUD_REGION:-us-central1} --allow-unauthenticated --project ${GOOGLE_CLOUD_PROJECT:-swiftflow-494302} --port 80"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.19",

@@ -1,57 +1,27 @@
 import { createInitialState } from "../data/initialState.js";
 import { apiClient } from "../api/client.js";
+import {
+    compressProfilePhoto,
+    createDocumentSubmissionStatuses,
+    currentTimestamp,
+    delay,
+    hasConfirmedDocumentSubmission,
+    normalizeDocumentSubmissionStatuses,
+} from "./helpers.js";
 import { getFirebaseIdToken, initializeFirebaseSession, uploadProfilePicture } from "../lib/firebase.js";
 import { initializeGoogleMapsFeatures } from "../lib/googleMaps.js";
+import {
+    activateCheckInLocally,
+    confirmBusLocally,
+    confirmCarpoolLocally,
+    confirmTrainLocally,
+    resetStateLocally,
+    saveProfileLocally,
+} from "./localState.js";
 import { openPass, setActiveTab } from "../state/mutations.js";
 import { syncDerivedTimes, formatCountdown } from "../utils/time.js";
 import { renderLayout } from "../views/layout.js";
 import { renderPage } from "../views/renderPage.js";
-
-const buildConfirmationCode = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-const currentTimestamp = () => new Date().toISOString();
-const delay = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
-const createDocumentSubmissionStatuses = () => ({
-    sgac: "idle",
-    mdac: "idle",
-});
-const normalizeDocumentSubmissionStatuses = (statuses = {}) => ({
-    ...createDocumentSubmissionStatuses(),
-    ...statuses,
-});
-const hasConfirmedDocumentSubmission = (appState) => Object.values(appState.documentSubmissionStatuses ?? {})
-    .includes("confirmed");
-
-const compressProfilePhoto = (file) => new Promise((resolve, reject) => {
-    const image = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    image.addEventListener("load", () => {
-        const maxSize = 512;
-        const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.width * scale));
-        canvas.height = Math.max(1, Math.round(image.height * scale));
-        const context = canvas.getContext("2d");
-
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-            URL.revokeObjectURL(objectUrl);
-            if (!blob) {
-                reject(new Error("Unable to process profile picture."));
-                return;
-            }
-
-            resolve(new File([blob], "profile-picture.webp", { type: "image/webp" }));
-        }, "image/webp", 0.82);
-    }, { once: true });
-
-    image.addEventListener("error", () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error("Unable to read profile picture."));
-    }, { once: true });
-
-    image.src = objectUrl;
-});
 
 export const createApp = (root) => {
     let pendingScrollTargetId = "";
@@ -142,120 +112,6 @@ export const createApp = (root) => {
         }
     };
 
-    const refreshProfileSummary = () => {
-        state.profileDetails = {
-            ...state.profileDetails,
-            activeTrips: [state.booking.confirmed, state.busBooking.confirmed, state.carpoolBooking.confirmed].filter(Boolean).length,
-            primaryMode: state.routeMode,
-            preferredDestination: state.booking.destination,
-            latestDepartureTime: state.booking.departureTime,
-            latestConfirmationCode: state.booking.confirmationCode,
-            passReady: state.passReady,
-        };
-    };
-
-    const addTripHistory = (booking) => {
-        const entry = {
-            id: `${booking.id}-${booking.confirmedAt ?? booking.updatedAt ?? currentTimestamp()}`,
-            bookingId: booking.id,
-            type: booking.type,
-            label: booking.status,
-            origin: booking.origin,
-            destination: booking.destination,
-            departureTime: booking.departureTime,
-            arrivalTime: booking.arrivalTime,
-            routeMode: state.routeMode,
-            routeGate: state.routeGate,
-            paymentStatus: booking.paymentStatus,
-            confirmationCode: booking.confirmationCode,
-            passStatus: booking.passStatus,
-            recordedAt: booking.confirmedAt ?? booking.updatedAt ?? currentTimestamp(),
-        };
-
-        state.tripHistory = [entry, ...(state.tripHistory ?? []).filter((item) => item.bookingId !== booking.id)].slice(0, 5);
-    };
-
-    const confirmTrainLocally = () => {
-        state.booking.confirmed = true;
-        state.booking.status = "RTS Confirmed";
-        state.booking.reservationStatus = "confirmed";
-        state.booking.passStatus = "ready";
-        state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
-        state.booking.confirmationCode = state.booking.confirmationCode ?? buildConfirmationCode("RTS");
-        state.booking.confirmedAt = state.booking.confirmedAt ?? currentTimestamp();
-        state.booking.updatedAt = currentTimestamp();
-        state.passReady = true;
-        state.routeMode = "RTS Link";
-        state.routeWindow = `${state.booking.departureTime} - ${state.booking.arrivalTime}`;
-        addTripHistory(state.booking);
-        refreshProfileSummary();
-    };
-
-    const confirmBusLocally = () => {
-        state.busBooking.confirmed = true;
-        state.busBooking.status = "Bus Confirmed";
-        state.busBooking.reservationStatus = "confirmed";
-        state.busBooking.passStatus = "ready";
-        state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
-        state.busBooking.confirmationCode = state.busBooking.confirmationCode ?? buildConfirmationCode("BUS");
-        state.busBooking.confirmedAt = state.busBooking.confirmedAt ?? currentTimestamp();
-        state.busBooking.updatedAt = currentTimestamp();
-        state.routeMode = state.busBooking.route;
-        state.profileQrMode = "bus";
-        addTripHistory(state.busBooking);
-        refreshProfileSummary();
-    };
-
-    const confirmCarpoolLocally = () => {
-        const driver = state.carpoolDrivers.find((item) => item.id === state.selectedCarpoolDriverId) ?? state.carpoolDrivers[0];
-        const seatCount = Number(driver.seats.match(/\d+/)?.[0] ?? 0);
-
-        if (!state.carpoolBooking.confirmed || state.carpoolBooking.driverId !== driver.id) {
-            driver.seats = `${Math.max(0, seatCount - 1)} seat${seatCount - 1 === 1 ? "" : "s"} left`;
-            state.carpoolBooking.confirmationCode = buildConfirmationCode("CAR");
-        }
-
-        driver.reservationStatus = "Reserved";
-        state.carpoolBooking.confirmed = true;
-        state.carpoolBooking.driverId = driver.id;
-        state.carpoolBooking.status = "Carpool Reserved";
-        state.carpoolBooking.paymentStatus = `Charge queued for ${driver.paymentMethod}`;
-        state.carpoolBooking.confirmedAt = state.carpoolBooking.confirmedAt ?? currentTimestamp();
-        state.carpoolBooking.updatedAt = currentTimestamp();
-        state.routeMode = "Taxi Carpool";
-        refreshProfileSummary();
-    };
-
-    const activateCheckInLocally = () => {
-        if (!state.checkInAccepted) {
-            state.checkInAccepted = true;
-            state.passReady = true;
-            state.balance += 120;
-            state.recentCredits.unshift({
-                title: "Priority QR Check-In",
-                detail: "Accepted low-volume border window",
-                amount: 120,
-                time: "Just now",
-                icon: "qr_code_2",
-            });
-        }
-        state.activeTab = "booking";
-    };
-
-    const saveProfileLocally = () => {
-        state.profileDetails = {
-            ...state.profileDetails,
-            displayName: state.profileDraft?.displayName?.trim() || "SwiftFlow User",
-            email: state.profileDraft?.email?.trim() || null,
-            memberSince: state.profileDetails?.memberSince ?? new Date().toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-            }),
-        };
-        refreshProfileSummary();
-    };
-
     const applyAuthSession = (session) => {
         if (!session?.enabled || !session.userId) {
             state.isAuthenticated = false;
@@ -320,7 +176,7 @@ export const createApp = (root) => {
 
         if (action === "accept-checkin") {
             const useBackend = state.isAuthenticated && state.isBackendConnected;
-            await runRequest("accept-checkin", useBackend ? () => apiClient.acceptCheckIn() : activateCheckInLocally, {
+            await runRequest("accept-checkin", useBackend ? () => apiClient.acceptCheckIn() : () => activateCheckInLocally(state), {
                 successMessage: "RTS slot secured and train page opened.",
                 nextTab: "booking",
                 syncAfter: useBackend,
@@ -475,7 +331,7 @@ export const createApp = (root) => {
             const saveProfile = useBackend ? () => apiClient.updateProfile({
                 displayName: state.profileDraft?.displayName ?? "",
                 email: state.profileDraft?.email ?? "",
-            }) : saveProfileLocally;
+            }) : () => saveProfileLocally(state);
 
             await runRequest("save-profile", saveProfile, {
                 successMessage: state.profileDetails?.memberSince ? "Profile saved." : "Profile created.",
@@ -532,7 +388,7 @@ export const createApp = (root) => {
         if (action === "confirm-train") {
             const useBackend = state.isAuthenticated && state.isBackendConnected;
             state.profileQrMode = "rts";
-            await runRequest("confirm-train", useBackend ? () => apiClient.confirmTrainBooking() : confirmTrainLocally, {
+            await runRequest("confirm-train", useBackend ? () => apiClient.confirmTrainBooking() : () => confirmTrainLocally(state), {
                 successMessage: "RTS booking confirmed.",
                 nextTab: "booking",
                 syncAfter: useBackend,
@@ -543,7 +399,7 @@ export const createApp = (root) => {
         if (action === "confirm-bus") {
             const useBackend = state.isAuthenticated && state.isBackendConnected;
             state.profileQrMode = "bus";
-            await runRequest("confirm-bus", useBackend ? () => apiClient.confirmBusBooking() : confirmBusLocally, {
+            await runRequest("confirm-bus", useBackend ? () => apiClient.confirmBusBooking() : () => confirmBusLocally(state), {
                 successMessage: "Bus booking confirmed.",
                 nextTab: "bus-booking",
                 syncAfter: useBackend,
@@ -557,7 +413,7 @@ export const createApp = (root) => {
             state.errorMessage = "";
             render();
             const useBackend = state.isAuthenticated && state.isBackendConnected;
-            await runRequest("confirm-carpool", useBackend ? () => apiClient.confirmCarpoolBooking() : confirmCarpoolLocally, {
+            await runRequest("confirm-carpool", useBackend ? () => apiClient.confirmCarpoolBooking() : () => confirmCarpoolLocally(state), {
                 successMessage: "Carpool seat reserved.",
                 nextTab: "carpool-pickup",
                 syncAfter: useBackend,
@@ -569,25 +425,7 @@ export const createApp = (root) => {
             const useBackend = state.isAuthenticated && state.isBackendConnected;
             const resetState = useBackend
                 ? () => apiClient.resetState()
-                : () => {
-                    Object.assign(state, createInitialState(), {
-                        isBootstrapping: false,
-                        isAuthenticated: state.isAuthenticated,
-                        authUserId: state.authUserId,
-                        isBackendConnected: false,
-                        authDisplayName: state.authDisplayName,
-                        authInitials: state.authInitials,
-                        pendingAction: "",
-                        errorMessage: "",
-                        noticeMessage: "",
-                        selectedRewardId: "vep-offset",
-                        showAlertRoutes: false,
-                        profileQrMode: "rts",
-                        isEditingProfile: false,
-                        profileDraft: null,
-                        documentSubmissionStatuses: createDocumentSubmissionStatuses(),
-                    });
-                };
+                : () => resetStateLocally(state);
 
             await runRequest("reset-state", resetState, {
                 successMessage: "Demo data reset. You can replay the booking flow now.",

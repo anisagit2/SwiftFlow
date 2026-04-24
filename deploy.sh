@@ -8,30 +8,35 @@ SwiftFlow Cloud Run deploy
 
 Usage:
   gcloud auth login
-  gcloud config set project personal-claw-1
+  gcloud config set project swiftflow-494302
 
-  export PROJECT_ID="personal-claw-1"
+  export PROJECT_ID="swiftflow-494302"
+  export FIREBASE_PROJECT_ID="swiftflow-72f6c"
   export REGION="us-central1"
   export INTERNAL_TASK_SECRET="$(openssl rand -hex 32)"
-  export FIREBASE_API_KEY="your_firebase_web_api_key"
-  export FIREBASE_APP_ID="your_firebase_web_app_id"
-  export FIREBASE_AUTH_DOMAIN="personal-claw-1.firebaseapp.com"
-  export FIREBASE_STORAGE_BUCKET="personal-claw-1.firebasestorage.app"
-  export GOOGLE_MAPS_API_KEY="your_google_maps_api_key"
+  export FIREBASE_API_KEY="AIzaSyA7rPS6XnSWfwDXtPiHuYeNQIRf5wFkDJc"
+  export FIREBASE_APP_ID="1:1083838992636:web:8f36757037117235e90779"
+  export FIREBASE_AUTH_DOMAIN="swiftflow-72f6c.firebaseapp.com"
+  export FIREBASE_STORAGE_BUCKET="swiftflow-72f6c.firebasestorage.app"
+  export GOOGLE_MAPS_API_KEY="AIzaSyBnft3LdzVEnkzvP1ZU2i1nVmNN_ChCsK4"
   export EXTRA_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
 
   ./deploy.sh
 
 Notes:
   - Default Firebase Storage bucket in this script is:
-      personal-claw-1.firebasestorage.app
+      swiftflow-72f6c.firebasestorage.app
+  - Google Cloud project and Firebase project are separate here:
+      PROJECT_ID=swiftflow-494302
+      FIREBASE_PROJECT_ID=swiftflow-72f6c
   - Override FIREBASE_STORAGE_BUCKET only if your Firebase project uses a different bucket.
   - Leave TASK_INVOKER_SERVICE_ACCOUNT empty unless you have configured Cloud Tasks OIDC invocation.
   - The script deploys backend first, then frontend, then patches backend CORS with the real frontend URL.
 EOF
 }
 
-PROJECT_ID="${PROJECT_ID:-personal-claw-1}"
+PROJECT_ID="${PROJECT_ID:-swiftflow-494302}"
+FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID:-swiftflow-72f6c}"
 REGION="${REGION:-us-central1}"
 BACKEND_SERVICE="${BACKEND_SERVICE:-swiftflow-backend}"
 FRONTEND_SERVICE="${FRONTEND_SERVICE:-swiftflow-frontend}"
@@ -43,9 +48,9 @@ SCHEDULER_SERVICE_ACCOUNT="${SCHEDULER_SERVICE_ACCOUNT:-swiftflow-scheduler@${PR
 INTERNAL_TASK_SECRET="${INTERNAL_TASK_SECRET:-}"
 GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_API_KEY:-}"
 FIREBASE_API_KEY="${FIREBASE_API_KEY:-}"
-FIREBASE_AUTH_DOMAIN="${FIREBASE_AUTH_DOMAIN:-${PROJECT_ID}.firebaseapp.com}"
+FIREBASE_AUTH_DOMAIN="${FIREBASE_AUTH_DOMAIN:-${FIREBASE_PROJECT_ID}.firebaseapp.com}"
 FIREBASE_APP_ID="${FIREBASE_APP_ID:-}"
-FIREBASE_STORAGE_BUCKET="${FIREBASE_STORAGE_BUCKET:-${PROJECT_ID}.firebasestorage.app}"
+FIREBASE_STORAGE_BUCKET="${FIREBASE_STORAGE_BUCKET:-${FIREBASE_PROJECT_ID}.firebasestorage.app}"
 EXTRA_ALLOWED_ORIGINS="${EXTRA_ALLOWED_ORIGINS:-http://localhost:5173}"
 
 require_command() {
@@ -148,7 +153,7 @@ gcloud run deploy "${BACKEND_SERVICE}" \
   --region "${REGION}" \
   --project "${PROJECT_ID}" \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=${PROJECT_ID},FIREBASE_PROJECT_ID=${PROJECT_ID},VERTEX_AI_LOCATION=${REGION},GEMINI_MODEL=gemini-1.5-flash,TRANSLATION_ENABLED=true,TRANSLATION_FALLBACK_LANGUAGE=en,BACKEND_BASE_URL=,INTERNAL_TASK_SECRET=${INTERNAL_TASK_SECRET},CLOUD_TASKS_LOCATION=${TASK_LOCATION},CLOUD_TASKS_QUEUE=${TASK_QUEUE},TASK_INVOKER_SERVICE_ACCOUNT=${TASK_INVOKER_SERVICE_ACCOUNT},ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=${INITIAL_ALLOWED_ORIGINS}"
+  --set-env-vars "^@^GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}@VERTEX_AI_LOCATION=${REGION}@GEMINI_MODEL=gemini-1.5-flash@TRANSLATION_ENABLED=true@TRANSLATION_FALLBACK_LANGUAGE=en@BACKEND_BASE_URL=@INTERNAL_TASK_SECRET=${INTERNAL_TASK_SECRET}@CLOUD_TASKS_LOCATION=${TASK_LOCATION}@CLOUD_TASKS_QUEUE=${TASK_QUEUE}@TASK_INVOKER_SERVICE_ACCOUNT=${TASK_INVOKER_SERVICE_ACCOUNT}@ALLOW_UNAUTHENTICATED_DEV=false@ALLOWED_ORIGINS=${INITIAL_ALLOWED_ORIGINS}"
 
 BACKEND_URL="$(gcloud run services describe "${BACKEND_SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"
 echo "Backend URL: ${BACKEND_URL}"
@@ -202,7 +207,7 @@ echo "🎨 Building frontend image..."
 gcloud builds submit frontend \
   --config frontend/cloudbuild.yaml \
   --project "${PROJECT_ID}" \
-  --substitutions "_IMAGE=${FRONTEND_IMAGE},_VITE_API_BASE_URL=${BACKEND_URL},_VITE_FIREBASE_API_KEY=${FIREBASE_API_KEY},_VITE_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN},_VITE_FIREBASE_PROJECT_ID=${PROJECT_ID},_VITE_FIREBASE_APP_ID=${FIREBASE_APP_ID},_VITE_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET},_VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}"
+  --substitutions "_IMAGE=${FRONTEND_IMAGE},_VITE_API_BASE_URL=${BACKEND_URL},_VITE_FIREBASE_API_KEY=${FIREBASE_API_KEY},_VITE_FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN},_VITE_FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID},_VITE_FIREBASE_APP_ID=${FIREBASE_APP_ID},_VITE_FIREBASE_STORAGE_BUCKET=${FIREBASE_STORAGE_BUCKET},_VITE_GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}"
 
 echo "🚀 Deploying frontend..."
 gcloud run deploy "${FRONTEND_SERVICE}" \
@@ -219,7 +224,7 @@ echo "🔄 Updating backend with final URLs..."
 gcloud run services update "${BACKEND_SERVICE}" \
   --region "${REGION}" \
   --project "${PROJECT_ID}" \
-  --update-env-vars "BACKEND_BASE_URL=${BACKEND_URL},ALLOWED_ORIGINS=${FINAL_ALLOWED_ORIGINS},TASK_INVOKER_SERVICE_ACCOUNT=${TASK_INVOKER_SERVICE_ACCOUNT}" >/dev/null
+  --update-env-vars "^@^BACKEND_BASE_URL=${BACKEND_URL}@ALLOWED_ORIGINS=${FINAL_ALLOWED_ORIGINS}@TASK_INVOKER_SERVICE_ACCOUNT=${TASK_INVOKER_SERVICE_ACCOUNT}" >/dev/null
 
 echo "✅ Deployment complete."
 echo "Backend: ${BACKEND_URL}"
