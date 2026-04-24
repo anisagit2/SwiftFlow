@@ -8,35 +8,35 @@ SwiftFlow Cloud Run deploy
 
 Usage:
   gcloud auth login
-  gcloud config set project swiftflow-494302
+  gcloud config set project YOUR_PROJECT_ID
 
-  export PROJECT_ID="swiftflow-494302"
-  export FIREBASE_PROJECT_ID="swiftflow-72f6c"
+  export PROJECT_ID="YOUR_PROJECT_ID"
+  export FIREBASE_PROJECT_ID="YOUR_FIREBASE_PROJECT_ID"
   export REGION="us-central1"
   export INTERNAL_TASK_SECRET="$(openssl rand -hex 32)"
-  export FIREBASE_API_KEY="AIzaSyA7rPS6XnSWfwDXtPiHuYeNQIRf5wFkDJc"
-  export FIREBASE_APP_ID="1:1083838992636:web:8f36757037117235e90779"
-  export FIREBASE_AUTH_DOMAIN="swiftflow-72f6c.firebaseapp.com"
-  export FIREBASE_STORAGE_BUCKET="swiftflow-72f6c.firebasestorage.app"
-  export GOOGLE_MAPS_API_KEY="AIzaSyBnft3LdzVEnkzvP1ZU2i1nVmNN_ChCsK4"
+  export FIREBASE_API_KEY="your_firebase_web_api_key"
+  export FIREBASE_APP_ID="your_firebase_web_app_id"
+  export FIREBASE_AUTH_DOMAIN="your_firebase_project.firebaseapp.com"
+  export FIREBASE_STORAGE_BUCKET="your_firebase_project.firebasestorage.app"
+  export GOOGLE_MAPS_API_KEY="your_google_maps_api_key"
   export EXTRA_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
 
   ./deploy.sh
 
 Notes:
   - Default Firebase Storage bucket in this script is:
-      swiftflow-72f6c.firebasestorage.app
+      YOUR_FIREBASE_PROJECT.firebasestorage.app
   - Google Cloud project and Firebase project are separate here:
-      PROJECT_ID=swiftflow-494302
-      FIREBASE_PROJECT_ID=swiftflow-72f6c
+      PROJECT_ID=YOUR_PROJECT_ID
+      FIREBASE_PROJECT_ID=YOUR_FIREBASE_PROJECT_ID
   - Override FIREBASE_STORAGE_BUCKET only if your Firebase project uses a different bucket.
   - Leave TASK_INVOKER_SERVICE_ACCOUNT empty unless you have configured Cloud Tasks OIDC invocation.
   - The script deploys backend first, then frontend, then patches backend CORS with the real frontend URL.
 EOF
 }
 
-PROJECT_ID="${PROJECT_ID:-swiftflow-494302}"
-FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID:-swiftflow-72f6c}"
+PROJECT_ID="${PROJECT_ID:-YOUR_PROJECT_ID}"
+FIREBASE_PROJECT_ID="${FIREBASE_PROJECT_ID:-YOUR_FIREBASE_PROJECT_ID}"
 REGION="${REGION:-us-central1}"
 BACKEND_SERVICE="${BACKEND_SERVICE:-swiftflow-backend}"
 FRONTEND_SERVICE="${FRONTEND_SERVICE:-swiftflow-frontend}"

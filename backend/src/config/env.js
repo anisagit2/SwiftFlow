@@ -8,8 +8,8 @@ const parseBoolean = (value, fallback = false) => {
 
 export const env = {
     port: Number(process.env.PORT) || 3001,
-    googleCloudProjectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "swiftflow-494302",
-    firebaseProjectId: process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "swiftflow-72f6c",
+    googleCloudProjectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "YOUR_PROJECT_ID",
+    firebaseProjectId: process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || "YOUR_FIREBASE_PROJECT_ID",
     vertexAiLocation: process.env.VERTEX_AI_LOCATION || "us-central1",
     geminiModel: process.env.GEMINI_MODEL || "gemini-1.5-flash",
     translationEnabled: parseBoolean(process.env.TRANSLATION_ENABLED, true),
