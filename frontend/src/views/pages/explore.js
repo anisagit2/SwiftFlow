@@ -15,7 +15,7 @@ export const renderExplorePage = (state) => {
                 </div>
                 <h1>Your border trip is lined up.</h1>
                 <p>
-                    SwiftFlow now shows your selected destination, booked RTS departure, estimated border arrival,
+                    SwiftFlow now shows your selected destination, booked RTS departure, estimated arrival by road,
                     and backup bus and carpool options so you can move through the Johor-Singapore crossing with less uncertainty.
                 </p>
                 <div class="hero-actions">
@@ -69,11 +69,7 @@ export const renderExplorePage = (state) => {
                         <strong>${state.booking.departureTime}</strong>
                     </div>
                     <div class="trip-summary__block">
-                        <small>Arrival at RTS</small>
-                        <strong>${state.booking.arrivalTime}</strong>
-                    </div>
-                    <div class="trip-summary__block">
-                        <small>Border ETA</small>
+                        <small>Arrival by road</small>
                         <strong>${state.booking.estimatedBorderArrival}</strong>
                     </div>
                 </div>

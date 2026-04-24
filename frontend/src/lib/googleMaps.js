@@ -1,3 +1,13 @@
+import {
+    buildDirectionsRendererOptions,
+    buildMapFallbackMarkup,
+    buildMapOptions,
+    buildWalkingRouteRequest,
+    getDriverForMap,
+    getMapRoutePoints,
+    pickShortestRoute,
+} from "./googleMapsHelpers.js";
+
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "";
 const GOOGLE_MAPS_SCRIPT_ID = "swiftflow-google-maps-js";
 
@@ -6,32 +16,7 @@ let googleMapsPromise;
 const renderMapFallback = (element, message) => {
     element.dataset.googleMapReady = "fallback";
     element.classList.add("google-map--fallback");
-    element.innerHTML = `
-        <div class="map-fallback-card">
-            <div class="map-fallback-badge">
-                <span class="material-symbols-outlined">map</span>
-                <span>Pickup map</span>
-            </div>
-            <h3>Interactive map unavailable</h3>
-            <p>${message}</p>
-            <div class="map-fallback-points">
-                <div class="map-fallback-point">
-                    <span class="material-symbols-outlined filled">place</span>
-                    <div>
-                        <strong>Use the pickup route card below</strong>
-                        <span>It still shows the meeting point, walk ETA, and departure time.</span>
-                    </div>
-                </div>
-                <div class="map-fallback-point">
-                    <span class="material-symbols-outlined filled">directions_walk</span>
-                    <div>
-                        <strong>Map will appear automatically once Google Maps is configured</strong>
-                        <span>No extra tap is needed after the API key and billing are working.</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+    element.innerHTML = buildMapFallbackMarkup(message);
 };
 
 const setMapStatus = (element, message) => {
@@ -107,37 +92,34 @@ const initializeCarpoolMap = (google, root, state, onRouteEstimated) => {
         return;
     }
 
-    const driver = state.carpoolDrivers.find((item) => item.id === state.selectedCarpoolDriverId) ?? state.carpoolDrivers[0];
-    const map = new google.maps.Map(mapElement, {
-        center: { lat: 1.462, lng: 103.764 },
-        disableDefaultUI: false,
-        mapTypeControl: false,
-        streetViewControl: false,
-        zoom: 15,
-    });
-    const directionsService = new google.maps.DirectionsService();
-    const directionsRenderer = new google.maps.DirectionsRenderer({
-        map,
-        suppressMarkers: false,
-        polylineOptions: {
-            strokeColor: "#006c46",
-            strokeOpacity: 0.9,
-            strokeWeight: 5,
-        },
-    });
+    const driver = getDriverForMap(state);
+    const { originCoordinates, destinationCoordinates } = getMapRoutePoints(state, driver);
 
-    directionsService.route({
-        origin: state.booking.origin,
-        destination: driver.pickupSpot,
-        travelMode: google.maps.TravelMode.WALKING,
-    }, (result, status) => {
+    const map = new google.maps.Map(
+        mapElement,
+        buildMapOptions(destinationCoordinates ?? originCoordinates ?? { lat: 1.462, lng: 103.764 }),
+    );
+    const directionsService = new google.maps.DirectionsService();
+    const directionsRenderer = new google.maps.DirectionsRenderer(buildDirectionsRendererOptions(map));
+
+    directionsService.route(buildWalkingRouteRequest(
+        google,
+        originCoordinates ?? state.booking.origin,
+        destinationCoordinates ?? driver.pickupSpot,
+    ), (result, status) => {
         if (status !== "OK" || !result) {
             renderMapFallback(mapElement, "Google Maps loaded, but the walking route estimate is unavailable for this pickup point right now.");
             return;
         }
 
-        directionsRenderer.setDirections(result);
-        const leg = result.routes?.[0]?.legs?.[0];
+        const shortestRoute = pickShortestRoute(result.routes);
+
+        directionsRenderer.setDirections({
+            ...result,
+            routes: shortestRoute ? [shortestRoute] : result.routes,
+        });
+
+        const leg = shortestRoute?.legs?.[0] ?? result.routes?.[0]?.legs?.[0];
         if (leg?.duration?.text) {
             onRouteEstimated(driver.id, leg.duration.text);
             setMapStatus(mapElement, `Walking route: ${leg.duration.text}`);

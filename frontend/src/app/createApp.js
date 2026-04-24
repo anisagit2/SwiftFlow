@@ -1,14 +1,12 @@
 import { createInitialState } from "../data/initialState.js";
 import { apiClient } from "../api/client.js";
 import {
-    compressProfilePhoto,
     createDocumentSubmissionStatuses,
-    currentTimestamp,
     delay,
     hasConfirmedDocumentSubmission,
     normalizeDocumentSubmissionStatuses,
 } from "./helpers.js";
-import { getFirebaseIdToken, initializeFirebaseSession, uploadProfilePicture } from "../lib/firebase.js";
+import { getFirebaseIdToken, initializeFirebaseSession } from "../lib/firebase.js";
 import { initializeGoogleMapsFeatures } from "../lib/googleMaps.js";
 import {
     activateCheckInLocally,
@@ -18,6 +16,8 @@ import {
     resetStateLocally,
     saveProfileLocally,
 } from "./localState.js";
+import { createFieldChangeHandler } from "./fieldHandlers.js";
+import { handleProfilePhotoUpload } from "./profilePhoto.js";
 import { openPass, setActiveTab } from "../state/mutations.js";
 import { syncDerivedTimes, formatCountdown } from "../utils/time.js";
 import { renderLayout } from "../views/layout.js";
@@ -436,164 +436,11 @@ export const createApp = (root) => {
         }
     };
 
-    const handleFieldChange = async (field, value) => {
-        if (field === "destination") {
-            if (state.activeTab === "bus-booking") {
-                state.busBooking.destination = value;
-                if (state.busBooking.confirmed) {
-                    state.busBooking.updatedAt = currentTimestamp();
-                    state.busBooking.paymentStatus = `Charged to ${state.busBooking.paymentMethod}`;
-                }
-            } else {
-                state.booking.destination = value;
-                if (state.booking.confirmed) {
-                    state.booking.updatedAt = currentTimestamp();
-                    state.booking.paymentStatus = `Charged to ${state.booking.paymentMethod}`;
-                }
-            }
-            state.noticeMessage = "Destination updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-
-            const updateDestination = state.activeTab === "bus-booking"
-                ? () => apiClient.updateBusBooking({ destination: value })
-                : () => apiClient.updateTrainBooking({ destination: value });
-
-            await runRequest(field, updateDestination, {
-                successMessage: "Destination updated.",
-            });
-            return;
-        }
-
-        if (field === "origin") {
-            state.booking.origin = value;
-            if (state.booking.confirmed) {
-                state.booking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "Origin updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateTrainBooking({ origin: value }), {
-                successMessage: "Origin updated.",
-            });
-            return;
-        }
-
-        if (field === "bus-origin") {
-            state.busBooking.origin = value;
-            if (state.busBooking.confirmed) {
-                state.busBooking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "Bus origin updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateBusBooking({ origin: value }), {
-                successMessage: "Bus origin updated.",
-            });
-            return;
-        }
-
-        if (field === "train-time") {
-            state.booking.departureTime = value;
-            syncDerivedTimes(state);
-            if (state.booking.confirmed) {
-                state.booking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "RTS departure time updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateTrainBooking({ departureTime: value }), {
-                successMessage: "RTS departure time updated.",
-            });
-            return;
-        }
-
-        if (field === "bus-time") {
-            state.busBooking.departureTime = value;
-            syncDerivedTimes(state);
-            if (state.busBooking.confirmed) {
-                state.busBooking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "Bus departure time updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateBusBooking({ departureTime: value }), {
-                successMessage: "Bus departure time updated.",
-            });
-            return;
-        }
-
-        if (field === "train-payment") {
-            state.booking.paymentMethod = value;
-            if (state.booking.confirmed) {
-                state.booking.paymentStatus = `Charged to ${value}`;
-                state.booking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "RTS payment method updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateTrainBooking({ paymentMethod: value }), {
-                successMessage: "RTS payment method updated.",
-            });
-            return;
-        }
-
-        if (field === "bus-payment") {
-            state.busBooking.paymentMethod = value;
-            if (state.busBooking.confirmed) {
-                state.busBooking.paymentStatus = `Charged to ${value}`;
-                state.busBooking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "Bus payment method updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateBusBooking({ paymentMethod: value }), {
-                successMessage: "Bus payment method updated.",
-            });
-            return;
-        }
-
-        if (field === "carpool-payment") {
-            const selectedDriver = state.carpoolDrivers.find((item) => item.id === state.selectedCarpoolDriverId);
-            if (selectedDriver) {
-                selectedDriver.paymentMethod = value;
-            }
-            if (state.carpoolBooking.confirmed) {
-                state.carpoolBooking.paymentStatus = `Charge queued for ${value}`;
-                state.carpoolBooking.updatedAt = currentTimestamp();
-            }
-            state.noticeMessage = "Carpool payment method updated.";
-            state.errorMessage = "";
-            render();
-            if (!state.isAuthenticated || !state.isBackendConnected) {
-                return;
-            }
-            await runRequest(field, () => apiClient.updateCarpoolPayment(value), {
-                successMessage: "Carpool payment method updated.",
-            });
-        }
-    };
+    const handleFieldChange = createFieldChangeHandler({
+        state,
+        render,
+        runRequest,
+    });
 
     root.addEventListener("click", async (event) => {
         const avatarTrigger = event.target.closest("#profile-avatar-trigger");
@@ -624,69 +471,7 @@ export const createApp = (root) => {
 
     root.addEventListener("change", async (event) => {
         if (event.target.id === "profile-photo-upload") {
-            const file = event.target.files?.[0];
-            if (!file) return;
-
-            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-                state.errorMessage = "Choose a JPG, PNG, or WebP image for your profile picture.";
-                render();
-                event.target.value = "";
-                return;
-            }
-
-            if (file.size > 8 * 1024 * 1024) {
-                state.errorMessage = "Choose a profile picture smaller than 8 MB.";
-                render();
-                event.target.value = "";
-                return;
-            }
-
-            if (!state.authUserId) {
-                state.errorMessage = "Firebase sign-in is still starting. Try uploading again in a moment.";
-                render();
-                return;
-            }
-
-            const previousPhotoURL = state.profileDetails?.photoURL ?? null;
-            const previewUrl = URL.createObjectURL(file);
-            state.profileDetails = {
-                ...state.profileDetails,
-                photoURL: previewUrl,
-            };
-            state.noticeMessage = "Preview ready. Optimizing photo before upload...";
-            state.errorMessage = "";
-            render();
-
-            await runRequest("upload-avatar", async () => {
-                const optimizedFile = await compressProfilePhoto(file);
-                const downloadURL = await uploadProfilePicture(state.authUserId, optimizedFile);
-                if (state.profileDetails) {
-                    state.profileDetails.photoURL = downloadURL;
-                }
-                if (state.isBackendConnected) {
-                    await apiClient.updateProfile({ photoURL: downloadURL });
-                }
-            }, {
-                successMessage: state.isBackendConnected
-                    ? "Profile picture updated."
-                    : "Profile picture uploaded. Backend sync will update when the API is connected.",
-                nextTab: "profile",
-                preserveTab: true,
-                syncAfter: state.isBackendConnected,
-            });
-
-            if (state.errorMessage && previousPhotoURL !== previewUrl) {
-                state.profileDetails = {
-                    ...state.profileDetails,
-                    photoURL: previousPhotoURL,
-                };
-                render();
-            }
-
-            URL.revokeObjectURL(previewUrl);
-
-            // Reset the input so it can trigger change event again if the same file is selected
-            event.target.value = "";
+            await handleProfilePhotoUpload({ state, render, runRequest }, event.target);
             return;
         }
 
