@@ -1,8 +1,9 @@
 import { addMinutes } from "../../utils/time.js";
 
 export const renderPassportCheckinPage = (state) => {
-    const checkinOpen = addMinutes(state.booking.departureTime, -30);
-    const aiLaneWindow = `${addMinutes(state.booking.departureTime, -12)} - ${addMinutes(state.booking.departureTime, 8)}`;
+    const destinationArrival = state.booking.estimatedBorderArrival || state.booking.arrivalTime;
+    const checkinOpen = addMinutes(destinationArrival, -30);
+    const aiLaneWindow = `${addMinutes(destinationArrival, -12)} - ${addMinutes(destinationArrival, 8)}`;
 
     return `
         <section class="hero-card hero-card--booking">
@@ -18,7 +19,7 @@ export const renderPassportCheckinPage = (state) => {
                     </div>
                 </div>
                 <h1>Check in from ${checkinOpen}</h1>
-                <p>Your selected departure time unlocks a smoother border journey when passport details are checked 30 minutes before the trip and matched with AI queue prediction.</p>
+                <p>SwiftFlow opens passport pre-check-in 30 minutes before you are expected to arrive at the destination checkpoint, so document verification happens near the border instead of before you leave home.</p>
             </div>
         </section>
 
@@ -33,8 +34,8 @@ export const renderPassportCheckinPage = (state) => {
                 </div>
                 <div class="ticket-grid">
                     <div class="ticket-stat">
-                        <small>Selected time</small>
-                        <strong>${state.booking.departureTime}</strong>
+                        <small>Destination arrival</small>
+                        <strong>${destinationArrival}</strong>
                     </div>
                     <div class="ticket-stat">
                         <small>Open check-in</small>
@@ -54,13 +55,13 @@ export const renderPassportCheckinPage = (state) => {
             <article class="panel panel--accent-soft">
                 <span class="eyebrow">AI prediction</span>
                 <h2>Border queue smoothing</h2>
-                <p>SwiftFlow predicts the quietest passport scan window around your selected time and recommends pre-checking 30 minutes before departure so document verification finishes before congestion builds.</p>
+                <p>SwiftFlow predicts the quietest passport scan window around your arrival at the checkpoint and recommends pre-checking 30 minutes before you reach the destination side.</p>
                 <div class="profile-highlight-list">
                     <div class="mini-stat">
                         <span class="material-symbols-outlined filled">schedule</span>
                         <div>
                             <strong>Best arrival buffer: 12 mins</strong>
-                            <p>Recommended passport scan time is just ahead of peak lane pressure.</p>
+                            <p>Recommended passport scan time stays close to the destination arrival window instead of the home departure time.</p>
                         </div>
                     </div>
                     <div class="mini-stat">

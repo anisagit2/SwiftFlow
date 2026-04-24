@@ -517,7 +517,7 @@ export const createApp = (root) => {
                 return null;
             }
 
-            return syncStateFromServer({ preserveTab: false, preserveCountdown: false });
+            return syncStateFromServer({ preserveTab: true, preserveCountdown: false });
         })
         .catch((error) => {
             state.errorMessage = error instanceof Error ? error.message : "Unable to create a guest profile or reach the backend.";
