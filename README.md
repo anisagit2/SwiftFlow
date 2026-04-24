@@ -75,7 +75,7 @@ npm --prefix backend install
 
 ## 2. Firebase Setup
 
-In Firebase Console for project `personal-claw-1`:
+In Firebase Console for project `swiftflow-72f6c`:
 
 ### Authentication
 
@@ -92,7 +92,7 @@ Add these domains in Firebase Authentication settings:
 - `localhost`
 - `127.0.0.1`
 - your frontend Cloud Run domain, for example:
-  - `swiftflow-frontend-840535137820.us-central1.run.app`
+  - `swiftflow-frontend-81063814483.us-central1.run.app`
 
 If this is missing, the frontend may load but backend calls will return:
 
@@ -112,7 +112,7 @@ If this is missing, the frontend may load but backend calls will return:
 3. Your current bucket name is:
 
 ```text
-personal-claw-1.firebasestorage.app
+swiftflow-72f6c.firebasestorage.app
 ```
 
 You also need storage rules that allow the authenticated Firebase user to upload profile photos.
@@ -130,7 +130,7 @@ gcloud services enable \
   translate.googleapis.com \
   iamcredentials.googleapis.com \
   containerregistry.googleapis.com \
-  --project personal-claw-1
+  --project swiftflow-494302
 ```
 
 If you want Maps features, also enable in Google Cloud Console:
@@ -173,8 +173,8 @@ Key variables:
 cd /Users/howy/Desktop/swiftFlow/backend
 
 export PORT=3001
-export GOOGLE_CLOUD_PROJECT=personal-claw-1
-export FIREBASE_PROJECT_ID=personal-claw-1
+export GOOGLE_CLOUD_PROJECT=swiftflow-494302
+export FIREBASE_PROJECT_ID=swiftflow-72f6c
 export VERTEX_AI_LOCATION=us-central1
 export GEMINI_MODEL=gemini-1.5-flash
 export TRANSLATION_ENABLED=true
@@ -220,10 +220,10 @@ Create `frontend/.env` with something like:
 ```env
 VITE_API_BASE_URL=http://localhost:3001
 VITE_FIREBASE_API_KEY=YOUR_FIREBASE_WEB_API_KEY
-VITE_FIREBASE_AUTH_DOMAIN=personal-claw-1.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=personal-claw-1
+VITE_FIREBASE_AUTH_DOMAIN=swiftflow-72f6c.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=swiftflow-72f6c
 VITE_FIREBASE_APP_ID=YOUR_FIREBASE_WEB_APP_ID
-VITE_FIREBASE_STORAGE_BUCKET=personal-claw-1.firebasestorage.app
+VITE_FIREBASE_STORAGE_BUCKET=swiftflow-72f6c.firebasestorage.app
 VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
@@ -291,19 +291,20 @@ Before running it:
 
 ```bash
 gcloud auth login
-gcloud config set project personal-claw-1
+gcloud config set project swiftflow-494302
 ```
 
 Then export the required variables:
 
 ```bash
-export PROJECT_ID="personal-claw-1"
+export PROJECT_ID="swiftflow-494302"
+export FIREBASE_PROJECT_ID="swiftflow-72f6c"
 export REGION="us-central1"
 export INTERNAL_TASK_SECRET="$(openssl rand -hex 32)"
 export FIREBASE_API_KEY="your_firebase_web_api_key"
 export FIREBASE_APP_ID="your_firebase_web_app_id"
-export FIREBASE_AUTH_DOMAIN="personal-claw-1.firebaseapp.com"
-export FIREBASE_STORAGE_BUCKET="personal-claw-1.firebasestorage.app"
+export FIREBASE_AUTH_DOMAIN="swiftflow-72f6c.firebaseapp.com"
+export FIREBASE_STORAGE_BUCKET="swiftflow-72f6c.firebasestorage.app"
 export GOOGLE_MAPS_API_KEY="your_google_maps_api_key"
 export EXTRA_ALLOWED_ORIGINS="http://localhost:5173,http://127.0.0.1:5173"
 ```
@@ -339,9 +340,9 @@ If you do not want to use the script, these are the manual steps.
 gcloud run deploy swiftflow-backend \
   --source backend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --allow-unauthenticated \
-  --set-env-vars "GOOGLE_CLOUD_PROJECT=personal-claw-1,FIREBASE_PROJECT_ID=personal-claw-1,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,TRANSLATION_ENABLED=true,TRANSLATION_FALLBACK_LANGUAGE=en,BACKEND_BASE_URL=,INTERNAL_TASK_SECRET=YOUR_SECRET,CLOUD_TASKS_LOCATION=us-central1,CLOUD_TASKS_QUEUE=swiftflow-trip-tasks,TASK_INVOKER_SERVICE_ACCOUNT=,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173"
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=swiftflow-494302,FIREBASE_PROJECT_ID=swiftflow-72f6c,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,TRANSLATION_ENABLED=true,TRANSLATION_FALLBACK_LANGUAGE=en,BACKEND_BASE_URL=,INTERNAL_TASK_SECRET=YOUR_SECRET,CLOUD_TASKS_LOCATION=us-central1,CLOUD_TASKS_QUEUE=swiftflow-trip-tasks,TASK_INVOKER_SERVICE_ACCOUNT=,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173"
 ```
 
 ### Step 2: get backend URL
@@ -349,7 +350,7 @@ gcloud run deploy swiftflow-backend \
 ```bash
 gcloud run services describe swiftflow-backend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --format='value(status.url)'
 ```
 
@@ -358,17 +359,17 @@ gcloud run services describe swiftflow-backend \
 ```bash
 gcloud builds submit frontend \
   --config frontend/cloudbuild.yaml \
-  --project personal-claw-1 \
-  --substitutions "_IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=personal-claw-1.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_FIREBASE_STORAGE_BUCKET=personal-claw-1.firebasestorage.app,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY"
+  --project swiftflow-494302 \
+  --substitutions "_IMAGE=gcr.io/swiftflow-494302/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=swiftflow-72f6c.firebaseapp.com,_VITE_FIREBASE_PROJECT_ID=swiftflow-72f6c,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_FIREBASE_STORAGE_BUCKET=swiftflow-72f6c.firebasestorage.app,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY"
 ```
 
 ### Step 4: deploy frontend
 
 ```bash
 gcloud run deploy swiftflow-frontend \
-  --image gcr.io/personal-claw-1/swiftflow-frontend \
+  --image gcr.io/swiftflow-494302/swiftflow-frontend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --allow-unauthenticated \
   --port 80
 ```
@@ -378,7 +379,7 @@ gcloud run deploy swiftflow-frontend \
 ```bash
 gcloud run services update swiftflow-backend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --update-env-vars "BACKEND_BASE_URL=https://YOUR_BACKEND_URL,ALLOWED_ORIGINS=https://YOUR_FRONTEND_URL,http://localhost:5173,http://127.0.0.1:5173"
 ```
 
@@ -396,7 +397,7 @@ gcloud tasks queues create swiftflow-trip-tasks \
   --location=us-central1 \
   --max-dispatches-per-second=5 \
   --max-concurrent-dispatches=10 \
-  --project personal-claw-1
+  --project swiftflow-494302
 ```
 
 ### Cloud Scheduler job
@@ -409,9 +410,9 @@ gcloud scheduler jobs create http swiftflow-expire-tickets \
   --uri "https://YOUR_BACKEND_URL/api/cron/expire-tickets" \
   --http-method POST \
   --headers "X-SwiftFlow-Task-Secret=YOUR_SECRET" \
-  --oidc-service-account-email "swiftflow-scheduler@personal-claw-1.iam.gserviceaccount.com" \
+  --oidc-service-account-email "swiftflow-scheduler@swiftflow-494302.iam.gserviceaccount.com" \
   --oidc-token-audience "https://YOUR_BACKEND_URL" \
-  --project personal-claw-1
+  --project swiftflow-494302
 ```
 
 ## 11. Smoke Tests
@@ -419,7 +420,7 @@ gcloud scheduler jobs create http swiftflow-expire-tickets \
 ### Backend health
 
 ```bash
-curl -s https://swiftflow-backend-840535137820.us-central1.run.app/health
+curl -s https://swiftflow-backend-81063814483.us-central1.run.app/health
 ```
 
 Expected shape:
@@ -431,7 +432,7 @@ Expected shape:
 ### Scheduler endpoint
 
 ```bash
-curl -s -X POST https://swiftflow-backend-840535137820.us-central1.run.app/api/cron/expire-tickets \
+curl -s -X POST https://swiftflow-backend-81063814483.us-central1.run.app/api/cron/expire-tickets \
   -H "X-SwiftFlow-Task-Secret: YOUR_SECRET"
 ```
 
@@ -440,11 +441,11 @@ curl -s -X POST https://swiftflow-backend-840535137820.us-central1.run.app/api/c
 ```bash
 gcloud tasks queues describe swiftflow-trip-tasks \
   --location us-central1 \
-  --project personal-claw-1
+  --project swiftflow-494302
 
 gcloud scheduler jobs describe swiftflow-expire-tickets \
   --location us-central1 \
-  --project personal-claw-1
+  --project swiftflow-494302
 ```
 
 ## 12. Troubleshooting
@@ -461,7 +462,7 @@ Possible causes:
 Check:
 
 ```bash
-curl -s https://swiftflow-backend-840535137820.us-central1.run.app/health
+curl -s https://swiftflow-backend-81063814483.us-central1.run.app/health
 ```
 
 ### Problem: backend returns `Unauthorized`
@@ -491,7 +492,7 @@ Fix:
 Check:
 
 - Firebase Storage is enabled
-- bucket name is `personal-claw-1.firebasestorage.app`
+- bucket name is `swiftflow-72f6c.firebasestorage.app`
 - Storage rules allow the signed-in Firebase user
 - Anonymous auth is enabled
 
@@ -516,7 +517,7 @@ Practical mitigation:
 ```bash
 gcloud run services update swiftflow-backend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --min-instances 1
 ```
 
@@ -534,7 +535,7 @@ node --check backend/src/server.js
 ```bash
 gcloud run services logs read swiftflow-backend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --limit 100
 ```
 
@@ -543,7 +544,7 @@ gcloud run services logs read swiftflow-backend \
 ```bash
 gcloud run services logs read swiftflow-frontend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --limit 100
 ```
 

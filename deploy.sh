@@ -60,6 +60,38 @@ require_command() {
   fi
 }
 
+write_backend_env_file() {
+  local file_path="$1"
+  cat > "${file_path}" <<EOF
+GOOGLE_CLOUD_PROJECT: "${PROJECT_ID}"
+FIREBASE_PROJECT_ID: "${FIREBASE_PROJECT_ID}"
+VERTEX_AI_LOCATION: "${REGION}"
+GEMINI_MODEL: "gemini-1.5-flash"
+TRANSLATION_ENABLED: "true"
+TRANSLATION_FALLBACK_LANGUAGE: "en"
+BACKEND_BASE_URL: "${BACKEND_BASE_URL_VALUE:-}"
+INTERNAL_TASK_SECRET: "${INTERNAL_TASK_SECRET}"
+CLOUD_TASKS_LOCATION: "${TASK_LOCATION}"
+CLOUD_TASKS_QUEUE: "${TASK_QUEUE}"
+TASK_INVOKER_SERVICE_ACCOUNT: "${TASK_INVOKER_SERVICE_ACCOUNT}"
+ALLOW_UNAUTHENTICATED_DEV: "false"
+ALLOWED_ORIGINS: "${ALLOWED_ORIGINS_VALUE}"
+EOF
+}
+
+canonical_run_url() {
+  local service="$1"
+  echo "https://${service}-${PROJECT_NUMBER}.${REGION}.run.app"
+}
+
+get_service_url() {
+  local service="$1"
+  gcloud run services describe "${service}" \
+    --region "${REGION}" \
+    --project "${PROJECT_ID}" \
+    --format='value(status.url)'
+}
+
 join_origins() {
   local primary="$1"
   local secondary="$2"
@@ -77,6 +109,17 @@ join_origins() {
   echo "${secondary}"
 }
 
+dedupe_csv() {
+  local values="$1"
+  python3 -c 'import sys
+items = [item.strip() for item in sys.argv[1].split(",") if item.strip()]
+seen = []
+for item in items:
+    if item not in seen:
+        seen.append(item)
+print(",".join(seen))' "${values}"
+}
+
 ensure_service_account() {
   local account="$1"
   if [[ -z "${account}" ]]; then
@@ -92,6 +135,10 @@ ensure_service_account() {
 }
 
 require_command gcloud
+
+TMP_BACKEND_ENV_FILE="$(mktemp)"
+TMP_BACKEND_UPDATE_ENV_FILE="$(mktemp)"
+trap 'rm -f "${TMP_BACKEND_ENV_FILE}" "${TMP_BACKEND_UPDATE_ENV_FILE}"' EXIT
 
 if [[ -z "${INTERNAL_TASK_SECRET}" ]]; then
   echo "❌ INTERNAL_TASK_SECRET is required."
@@ -146,6 +193,9 @@ else
 fi
 
 INITIAL_ALLOWED_ORIGINS="$(join_origins "" "${EXTRA_ALLOWED_ORIGINS}")"
+ALLOWED_ORIGINS_VALUE="${INITIAL_ALLOWED_ORIGINS}"
+BACKEND_BASE_URL_VALUE=""
+write_backend_env_file "${TMP_BACKEND_ENV_FILE}"
 
 echo "🚀 Deploying backend..."
 gcloud run deploy "${BACKEND_SERVICE}" \
@@ -153,9 +203,10 @@ gcloud run deploy "${BACKEND_SERVICE}" \
   --region "${REGION}" \
   --project "${PROJECT_ID}" \
   --allow-unauthenticated \
-  --set-env-vars "^@^GOOGLE_CLOUD_PROJECT=${PROJECT_ID}@FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}@VERTEX_AI_LOCATION=${REGION}@GEMINI_MODEL=gemini-1.5-flash@TRANSLATION_ENABLED=true@TRANSLATION_FALLBACK_LANGUAGE=en@BACKEND_BASE_URL=@INTERNAL_TASK_SECRET=${INTERNAL_TASK_SECRET}@CLOUD_TASKS_LOCATION=${TASK_LOCATION}@CLOUD_TASKS_QUEUE=${TASK_QUEUE}@TASK_INVOKER_SERVICE_ACCOUNT=${TASK_INVOKER_SERVICE_ACCOUNT}@ALLOW_UNAUTHENTICATED_DEV=false@ALLOWED_ORIGINS=${INITIAL_ALLOWED_ORIGINS}"
+  --env-vars-file "${TMP_BACKEND_ENV_FILE}"
 
-BACKEND_URL="$(gcloud run services describe "${BACKEND_SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"
+BACKEND_URL="$(get_service_url "${BACKEND_SERVICE}")"
+BACKEND_CANONICAL_URL="$(canonical_run_url "${BACKEND_SERVICE}")"
 echo "Backend URL: ${BACKEND_URL}"
 
 echo "🔑 Granting Cloud Run invoke permission..."
@@ -217,18 +268,24 @@ gcloud run deploy "${FRONTEND_SERVICE}" \
   --allow-unauthenticated \
   --port 80
 
-FRONTEND_URL="$(gcloud run services describe "${FRONTEND_SERVICE}" --region "${REGION}" --project "${PROJECT_ID}" --format='value(status.url)')"
-FINAL_ALLOWED_ORIGINS="$(join_origins "${FRONTEND_URL}" "${EXTRA_ALLOWED_ORIGINS}")"
+FRONTEND_URL="$(get_service_url "${FRONTEND_SERVICE}")"
+FRONTEND_CANONICAL_URL="$(canonical_run_url "${FRONTEND_SERVICE}")"
+FINAL_ALLOWED_ORIGINS="$(dedupe_csv "$(join_origins "${FRONTEND_URL},${FRONTEND_CANONICAL_URL}" "${EXTRA_ALLOWED_ORIGINS}")")"
+ALLOWED_ORIGINS_VALUE="${FINAL_ALLOWED_ORIGINS}"
+BACKEND_BASE_URL_VALUE="${BACKEND_URL}"
+write_backend_env_file "${TMP_BACKEND_UPDATE_ENV_FILE}"
 
 echo "🔄 Updating backend with final URLs..."
 gcloud run services update "${BACKEND_SERVICE}" \
   --region "${REGION}" \
   --project "${PROJECT_ID}" \
-  --update-env-vars "^@^BACKEND_BASE_URL=${BACKEND_URL}@ALLOWED_ORIGINS=${FINAL_ALLOWED_ORIGINS}@TASK_INVOKER_SERVICE_ACCOUNT=${TASK_INVOKER_SERVICE_ACCOUNT}" >/dev/null
+  --env-vars-file "${TMP_BACKEND_UPDATE_ENV_FILE}" >/dev/null
 
 echo "✅ Deployment complete."
 echo "Backend: ${BACKEND_URL}"
 echo "Frontend: ${FRONTEND_URL}"
+echo "Backend alias: ${BACKEND_CANONICAL_URL}"
+echo "Frontend alias: ${FRONTEND_CANONICAL_URL}"
 echo
 echo "Quick checks:"
 echo "  curl -s ${BACKEND_URL}/health"

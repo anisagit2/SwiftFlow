@@ -19,7 +19,7 @@ export const buildCorsHeaders = (request) => ({
     "Access-Control-Allow-Origin": getAllowedOrigin(request),
     "Vary": "Origin",
     "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-SwiftFlow-Language, X-SwiftFlow-Task-Secret",
 });
 
 export const sendJson = (response, statusCode, payload, request = null) => {

@@ -389,8 +389,8 @@ Backend:
 ```bash
 cd backend
 export PORT=3001
-export GOOGLE_CLOUD_PROJECT=personal-claw-1
-export FIREBASE_PROJECT_ID=personal-claw-1
+export GOOGLE_CLOUD_PROJECT=swiftflow-494302
+export FIREBASE_PROJECT_ID=swiftflow-72f6c
 export ALLOWED_ORIGINS=http://localhost:5173
 export ALLOW_UNAUTHENTICATED_DEV=false
 npm run dev
@@ -434,9 +434,9 @@ Backend first:
 gcloud run deploy swiftflow-backend \
   --source backend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --allow-unauthenticated \
-  --set-env-vars GOOGLE_CLOUD_PROJECT=personal-claw-1,FIREBASE_PROJECT_ID=personal-claw-1,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS="https://swiftflow-frontend-840535137820.us-central1.run.app"
+  --set-env-vars GOOGLE_CLOUD_PROJECT=swiftflow-494302,FIREBASE_PROJECT_ID=swiftflow-72f6c,VERTEX_AI_LOCATION=us-central1,GEMINI_MODEL=gemini-1.5-flash,ALLOW_UNAUTHENTICATED_DEV=false,ALLOWED_ORIGINS="https://swiftflow-frontend-81063814483.us-central1.run.app"
 ```
 
 Frontend build:
@@ -444,17 +444,17 @@ Frontend build:
 ```bash
 gcloud builds submit frontend \
   --config frontend/cloudbuild.yaml \
-  --project personal-claw-1 \
-  --substitutions _IMAGE=gcr.io/personal-claw-1/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=personal-claw-1,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
+  --project swiftflow-494302 \
+  --substitutions _IMAGE=gcr.io/swiftflow-494302/swiftflow-frontend,_VITE_API_BASE_URL=https://YOUR_BACKEND_URL,_VITE_FIREBASE_API_KEY=YOUR_FIREBASE_API_KEY,_VITE_FIREBASE_AUTH_DOMAIN=YOUR_FIREBASE_AUTH_DOMAIN,_VITE_FIREBASE_PROJECT_ID=swiftflow-72f6c,_VITE_FIREBASE_APP_ID=YOUR_FIREBASE_APP_ID,_VITE_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
 Frontend deploy:
 
 ```bash
 gcloud run deploy swiftflow-frontend \
-  --image gcr.io/personal-claw-1/swiftflow-frontend \
+  --image gcr.io/swiftflow-494302/swiftflow-frontend \
   --region us-central1 \
-  --project personal-claw-1 \
+  --project swiftflow-494302 \
   --allow-unauthenticated \
   --port 80
 ```
